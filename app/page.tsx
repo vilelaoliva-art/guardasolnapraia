@@ -1,65 +1,74 @@
-import Image from "next/image";
+'use client'
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main style={{ minHeight: '100vh', backgroundColor: '#00210D', color: 'white' }}>
+      
+      {/* Header */}
+      <header style={{ borderBottom: '1px solid rgba(192,171,96,0.2)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#C0AB60', letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>by SS Condo · Safe Season</div>
+        </div>
+        <a href="/cadastro" style={{ backgroundColor: 'transparent', color: '#C0AB60', border: '1px solid #C0AB60', borderRadius: 8, padding: '8px 16px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+          Sou sindico
+        </a>
+      </header>
+
+      {/* Hero */}
+      <section style={{ textAlign: 'center', padding: '64px 24px 48px' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🏖️</div>
+        <h1 style={{ fontSize: 32, fontWeight: 700, color: '#C0AB60', marginBottom: 16, lineHeight: 1.3 }}>
+          Organize os guarda-sois<br />do seu condominio
+        </h1>
+        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', maxWidth: 480, margin: '0 auto 32px', lineHeight: 1.6 }}>
+          O proprietario reserva os dias pelo celular. A portaria ja sabe antecipadamente quais guarda-sois levar para a praia. Simples assim.
+        </p>
+        <a href="/cadastro" className="btn-dourado" style={{ display: 'inline-block', textDecoration: 'none' }}>
+          Cadastrar meu condominio
+        </a>
+      </section>
+
+      {/* Como funciona */}
+      <section style={{ padding: '48px 24px', maxWidth: 720, margin: '0 auto' }}>
+        <h2 style={{ textAlign: 'center', fontSize: 22, fontWeight: 600, color: '#C0AB60', marginBottom: 32 }}>
+          Como funciona
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          {[
+            { num: '1', titulo: 'Sindico cadastra', texto: 'Registra o condominio, as unidades e define o horario limite para solicitacao.' },
+            { num: '2', titulo: 'Proprietario reserva', texto: 'Acessa o link ou QR Code e marca os dias que vai usar o guarda-sol.' },
+            { num: '3', titulo: 'Portaria ve a lista', texto: 'No dia, a portaria consulta quais unidades solicitaram e leva os guarda-sois.' },
+          ].map((item) => (
+            <div key={item.num} className="card" style={{ textAlign: 'center' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#C0AB60', color: '#00210D', fontWeight: 700, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                {item.num}
+              </div>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: '#C0AB60' }}>{item.titulo}</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{item.texto}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA final */}
+      <section style={{ textAlign: 'center', padding: '48px 24px 64px' }}>
+        <div className="card" style={{ maxWidth: 480, margin: '0 auto' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600, color: '#C0AB60', marginBottom: 12 }}>
+            Quer isso no seu condominio?
+          </h2>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginBottom: 24, lineHeight: 1.6 }}>
+            Cadastre agora gratuitamente e compartilhe o link com os moradores em minutos.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+          <a href="/cadastro" className="btn-dourado" style={{ display: 'inline-block', textDecoration: 'none' }}>
+            Comecar agora
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+            Faz parte do ecossistema SS Condo · Safe Season
+          </div>
         </div>
-      </main>
-    </div>
-  );
+      </section>
+
+    </main>
+  )
 }
