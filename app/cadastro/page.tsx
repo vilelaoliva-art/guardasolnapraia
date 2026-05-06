@@ -12,8 +12,7 @@ export default function Cadastro() {
   const [form, setForm] = useState({
     nome: '',
     endereco: '',
-    cidade: '',
-    num_guardasois: '',
+    localizacao_nome: '',
     horario_limite: '05:00',
     regras: '',
     sindico_nome: '',
@@ -40,7 +39,15 @@ export default function Cadastro() {
     setErro('')
     setLoading(true)
 
+    if (!form.localizacao_nome.trim()) {
+      setErro('Informe a localização.')
+      setLoading(false)
+      return
+    }
+
     const slug = gerarSlug(form.nome)
+    const localizacaoSlug = gerarSlug(form.localizacao_nome)
+
     const unidades = unidadesTexto
       .split(/[\n,;]+/)
       .map(u => u.trim())
@@ -52,9 +59,49 @@ export default function Cadastro() {
       return
     }
 
+    // 1. Verifica se a localização já existe (pelo slug)
+    let localizacaoId: string
+
+    const { data: localizacaoExistente } = await supabase
+      .from('localizacoes')
+      .select('id')
+      .eq('slug', localizacaoSlug)
+      .maybeSingle()
+
+    if (localizacaoExistente) {
+      // Já existe — reaproveita
+      localizacaoId = localizacaoExistente.id
+    } else {
+      // Não existe — cria nova
+      const { data: novaLocalizacao, error: erroLoc } = await supabase
+        .from('localizacoes')
+        .insert({
+          nome: form.localizacao_nome.trim(),
+          slug: localizacaoSlug,
+          cidade: form.localizacao_nome.trim(),
+          estado: 'SP',
+        })
+        .select()
+        .single()
+
+      if (erroLoc || !novaLocalizacao) {
+        setErro('Erro ao salvar localização. ' + (erroLoc?.message || ''))
+        setLoading(false)
+        return
+      }
+      localizacaoId = novaLocalizacao.id
+    }
+
+    // 2. Cria o condomínio
+    const { localizacao_nome, ...formSemLocalizacao } = form
+
     const { data: condo, error: erroInsert } = await supabase
       .from('condominios_guardasol')
-      .insert({ ...form, slug, num_guardasois: Number(form.num_guardasois) })
+      .insert({
+        ...formSemLocalizacao,
+        slug,
+        localizacao_id: localizacaoId,
+      })
       .select()
       .single()
 
@@ -64,6 +111,7 @@ export default function Cadastro() {
       return
     }
 
+    // 3. Cria as unidades
     const unidadesParaInserir = unidades.map(numero => ({
       condominio_id: condo.id,
       numero,
@@ -74,12 +122,13 @@ export default function Cadastro() {
       .insert(unidadesParaInserir)
 
     if (erroUnidades) {
-      setErro('Condominio cadastrado mas erro ao salvar unidades.')
+      setErro('Condomínio cadastrado mas houve erro ao salvar unidades.')
       setLoading(false)
       return
     }
 
-    router.push(`/${slug}/admin`)
+    // 4. Redireciona pro painel do síndico
+    router.push(`/${localizacaoSlug}/${slug}/sindico`)
   }
 
   return (
@@ -91,55 +140,59 @@ export default function Cadastro() {
         </a>
 
         <h1 style={{ fontSize: 24, fontWeight: 700, color: '#C0AB60', marginBottom: 8 }}>
-          Cadastrar condominio
+          Cadastrar condomínio
         </h1>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 32 }}>
-          Preencha os dados abaixo para criar o link do seu condominio.
+          Preencha os dados abaixo para criar o link do seu condomínio.
         </p>
 
         <form onSubmit={handleSubmit}>
 
           <div className="card" style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Dados do condominio</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Dados do condomínio</h2>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Nome do condominio *</label>
-              <input name="nome" value={form.nome} onChange={handleChange} placeholder="Ex: Edificio Beira Mar" required />
+              <label>Nome do condomínio *</label>
+              <input name="nome" value={form.nome} onChange={handleChange} placeholder="Ex: Edifício Beira Mar" required />
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Endereco *</label>
-              <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Rua, numero" required />
+              <label>Endereço *</label>
+              <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Rua, número" required />
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Cidade *</label>
-              <input name="cidade" value={form.cidade} onChange={handleChange} placeholder="Ex: Guaruja" required />
+              <label>Localização *</label>
+              <input
+                name="localizacao_nome"
+                value={form.localizacao_nome}
+                onChange={handleChange}
+                placeholder="Ex: Riviera de São Lourenço, Maresias, Guarujá..."
+                required
+              />
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, display: 'block' }}>
+                Bairro, praia ou região onde fica o condomínio
+              </span>
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Quantidade de guarda-sois disponiveis *</label>
-              <input name="num_guardasois" type="number" min="1" value={form.num_guardasois} onChange={handleChange} placeholder="Ex: 10" required />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label>Horario limite para solicitacao *</label>
+              <label>Horário limite para solicitação *</label>
               <input name="horario_limite" type="time" value={form.horario_limite} onChange={handleChange} required />
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, display: 'block' }}>
-                Proprietario deve solicitar antes desse horario no mesmo dia
+                Proprietário deve solicitar antes desse horário no mesmo dia
               </span>
             </div>
 
             <div style={{ marginBottom: 0 }}>
               <label>Regras adicionais (opcional)</label>
-              <textarea name="regras" value={form.regras} onChange={handleChange} placeholder="Ex: Guarda-sol entregue ate as 8h na faixa de areia em frente ao predio." rows={3} style={{ resize: 'vertical' }} />
+              <textarea name="regras" value={form.regras} onChange={handleChange} placeholder="Ex: Guarda-sol entregue até as 8h na faixa de areia em frente ao prédio." rows={3} style={{ resize: 'vertical' }} />
             </div>
           </div>
 
           <div className="card" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Unidades</h2>
             <div>
-              <label>Numeros das unidades *</label>
+              <label>Números das unidades *</label>
               <textarea
                 value={unidadesTexto}
                 onChange={e => setUnidadesTexto(e.target.value)}
@@ -148,16 +201,16 @@ export default function Cadastro() {
                 style={{ resize: 'vertical', fontFamily: 'monospace' }}
               />
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, display: 'block' }}>
-                Digite um numero por linha ou separe por virgula
+                Digite um número por linha ou separe por vírgula
               </span>
             </div>
           </div>
 
           <div className="card" style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Sindico responsavel</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Síndico responsável</h2>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Nome do sindico *</label>
+              <label>Nome do síndico *</label>
               <input name="sindico_nome" value={form.sindico_nome} onChange={handleChange} placeholder="Nome completo" required />
             </div>
 
@@ -170,12 +223,12 @@ export default function Cadastro() {
           <div className="card" style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 8 }}>Senhas de acesso</h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20 }}>
-              Guarde essas senhas com cuidado. Voce precisara delas para acessar o painel.
+              Guarde essas senhas com cuidado. Você precisará delas para acessar o painel.
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Senha do sindico *</label>
-              <input name="senha_sindico" type="password" value={form.senha_sindico} onChange={handleChange} placeholder="Senha para o painel do sindico" required />
+              <label>Senha do síndico *</label>
+              <input name="senha_sindico" type="password" value={form.senha_sindico} onChange={handleChange} placeholder="Senha para o painel do síndico" required />
             </div>
 
             <div>
@@ -191,7 +244,7 @@ export default function Cadastro() {
           )}
 
           <button type="submit" className="btn-dourado" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Cadastrando...' : 'Cadastrar condominio'}
+            {loading ? 'Cadastrando...' : 'Cadastrar condomínio'}
           </button>
 
         </form>
