@@ -59,7 +59,6 @@ export default function Cadastro() {
       return
     }
 
-    // 1. Verifica se a localização já existe (pelo slug)
     let localizacaoId: string
 
     const { data: localizacaoExistente } = await supabase
@@ -69,10 +68,8 @@ export default function Cadastro() {
       .maybeSingle()
 
     if (localizacaoExistente) {
-      // Já existe — reaproveita
       localizacaoId = localizacaoExistente.id
     } else {
-      // Não existe — cria nova
       const { data: novaLocalizacao, error: erroLoc } = await supabase
         .from('localizacoes')
         .insert({
@@ -92,7 +89,6 @@ export default function Cadastro() {
       localizacaoId = novaLocalizacao.id
     }
 
-    // 2. Cria o condomínio
     const { localizacao_nome, ...formSemLocalizacao } = form
 
     const { data: condo, error: erroInsert } = await supabase
@@ -111,7 +107,6 @@ export default function Cadastro() {
       return
     }
 
-    // 3. Cria as unidades
     const unidadesParaInserir = unidades.map(numero => ({
       condominio_id: condo.id,
       numero,
@@ -127,29 +122,42 @@ export default function Cadastro() {
       return
     }
 
-    // 4. Redireciona pro painel do síndico
     router.push(`/${localizacaoSlug}/${slug}/sindico`)
   }
 
   return (
-    <main style={{ minHeight: '100vh', backgroundColor: '#00210D', color: 'white', padding: '32px 24px' }}>
-      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+    <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
 
-        <a href="/" style={{ color: '#C0AB60', fontSize: 14, textDecoration: 'none', display: 'block', marginBottom: 24 }}>
+      {/* HEADER */}
+      <header style={{ backgroundColor: '#00210D', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <a href="/" style={{ textDecoration: 'none' }}>
+          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>
+            GUARDA-SOL NA PRAIA
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>
+            by SS Condo
+          </div>
+        </a>
+      </header>
+
+      {/* CONTEÚDO */}
+      <section style={{ flex: 1, padding: '40px 24px', maxWidth: 600, margin: '0 auto', width: '100%' }}>
+
+        <a href="/" style={{ color: '#555', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 20 }}>
           ← Voltar
         </a>
 
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#C0AB60', marginBottom: 8 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>
           Cadastrar condomínio
         </h1>
-        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 32 }}>
+        <p style={{ fontSize: 14, color: '#555', marginBottom: 32, lineHeight: 1.6 }}>
           Preencha os dados abaixo para criar o link do seu condomínio.
         </p>
 
         <form onSubmit={handleSubmit}>
 
-          <div className="card" style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Dados do condomínio</h2>
+          <div className="card-form">
+            <h2>Dados do condomínio</h2>
 
             <div style={{ marginBottom: 16 }}>
               <label>Nome do condomínio *</label>
@@ -170,7 +178,7 @@ export default function Cadastro() {
                 placeholder="Ex: Riviera de São Lourenço, Maresias, Guarujá..."
                 required
               />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, display: 'block' }}>
+              <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
                 Bairro, praia ou região onde fica o condomínio
               </span>
             </div>
@@ -178,19 +186,19 @@ export default function Cadastro() {
             <div style={{ marginBottom: 16 }}>
               <label>Horário limite para solicitação *</label>
               <input name="horario_limite" type="time" value={form.horario_limite} onChange={handleChange} required />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, display: 'block' }}>
+              <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
                 Proprietário deve solicitar antes desse horário no mesmo dia
               </span>
             </div>
 
-            <div style={{ marginBottom: 0 }}>
+            <div>
               <label>Regras adicionais (opcional)</label>
               <textarea name="regras" value={form.regras} onChange={handleChange} placeholder="Ex: Guarda-sol entregue até as 8h na faixa de areia em frente ao prédio." rows={3} style={{ resize: 'vertical' }} />
             </div>
           </div>
 
-          <div className="card" style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Unidades</h2>
+          <div className="card-form">
+            <h2>Unidades</h2>
             <div>
               <label>Números das unidades *</label>
               <textarea
@@ -200,14 +208,14 @@ export default function Cadastro() {
                 rows={6}
                 style={{ resize: 'vertical', fontFamily: 'monospace' }}
               />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, display: 'block' }}>
+              <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
                 Digite um número por linha ou separe por vírgula
               </span>
             </div>
           </div>
 
-          <div className="card" style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 20 }}>Síndico responsável</h2>
+          <div className="card-form">
+            <h2>Síndico responsável</h2>
 
             <div style={{ marginBottom: 16 }}>
               <label>Nome do síndico *</label>
@@ -220,9 +228,9 @@ export default function Cadastro() {
             </div>
           </div>
 
-          <div className="card" style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#C0AB60', marginBottom: 8 }}>Senhas de acesso</h2>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20 }}>
+          <div className="card-form" style={{ marginBottom: 32 }}>
+            <h2 style={{ marginBottom: 8 }}>Senhas de acesso</h2>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>
               Guarde essas senhas com cuidado. Você precisará delas para acessar o painel.
             </p>
 
@@ -238,17 +246,49 @@ export default function Cadastro() {
           </div>
 
           {erro && (
-            <div style={{ backgroundColor: 'rgba(255,80,80,0.15)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#ff9090' }}>
+            <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#B91C1C' }}>
               {erro}
             </div>
           )}
 
-          <button type="submit" className="btn-dourado" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Cadastrando...' : 'Cadastrar condomínio'}
+          <button
+            type="submit"
+            style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '14px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 15 }}
+            disabled={loading}
+          >
+            {loading ? 'Cadastrando...' : 'Cadastrar condomínio grátis'}
           </button>
 
+          <p style={{ marginTop: 14, fontSize: 13, color: '#555', fontStyle: 'italic', textAlign: 'center' }}>
+            Um serviço gratuito oferecido por{' '}
+            <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ color: '#00210D', fontWeight: 600, textDecoration: 'underline' }}>
+              www.sscondo.com.br
+            </a>
+          </p>
+
         </form>
-      </div>
+      </section>
+
+      {/* RODAPÉ */}
+      <footer style={{ backgroundColor: '#00210D', padding: '32px 24px', marginTop: 40 }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+            Guarda-Sol na Praia · {new Date().getFullYear()}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>
+              powered by
+            </span>
+            <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+              <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 36, borderRadius: 4 }} />
+              <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>
+                Safe Season
+              </div>
+            </a>
+          </div>
+        </div>
+      </footer>
+
     </main>
   )
 }

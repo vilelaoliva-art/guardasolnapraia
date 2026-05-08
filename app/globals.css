@@ -9,15 +9,21 @@
 :root {
   --verde: #00210D;
   --dourado: #C0AB60;
-  --card: #012912;
+  --card-escuro: #012912;
+  --bg-claro: #FFFFFF;
+  --bg-suave: #FAF6EE;
+  --texto-claro: #555555;
+  --borda-clara: #E8E4DC;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: var(--verde);
-  color: white;
+  background-color: var(--bg-claro);
+  color: var(--verde);
   min-height: 100vh;
 }
+
+/* ===== BOTÕES ===== */
 
 .btn-dourado {
   background-color: var(--dourado);
@@ -52,41 +58,117 @@ body {
   color: var(--verde);
 }
 
+.btn-verde {
+  background-color: var(--verde);
+  color: white;
+  font-weight: 600;
+  padding: 12px 26px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+
+.btn-verde:hover {
+  opacity: 0.88;
+}
+
+/* ===== CARDS ===== */
+
 .card {
-  background-color: var(--card);
+  background-color: var(--card-escuro);
   border-radius: 12px;
   padding: 24px;
   border: 1px solid rgba(192, 171, 96, 0.2);
 }
 
+.card-claro {
+  background-color: var(--bg-suave);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid var(--borda-clara);
+}
+
+/* ===== INPUTS (fundo branco, borda fina cinza) ===== */
+
 input, select, textarea {
-  background-color: rgba(255,255,255,0.08);
-  border: 1px solid rgba(192, 171, 96, 0.3);
+  background-color: white;
+  border: 1px solid var(--borda-clara);
   border-radius: 8px;
-  padding: 10px 14px;
-  color: white;
+  padding: 11px 14px;
+  color: var(--verde);
   font-size: 15px;
   width: 100%;
   outline: none;
-  transition: border 0.2s;
+  transition: border 0.2s, box-shadow 0.2s;
+  font-family: inherit;
 }
 
 input:focus, select:focus, textarea:focus {
-  border-color: var(--dourado);
+  border-color: var(--verde);
+  box-shadow: 0 0 0 3px rgba(0, 33, 13, 0.08);
 }
 
 input::placeholder, textarea::placeholder {
-  color: rgba(255,255,255,0.35);
+  color: #999;
 }
 
 select option {
-  background-color: var(--verde);
-  color: white;
+  background-color: white;
+  color: var(--verde);
 }
 
 label {
   font-size: 13px;
-  color: rgba(255,255,255,0.6);
+  color: #555;
+  font-weight: 500;
   display: block;
   margin-bottom: 6px;
+}
+
+/* ===== HEADER E RODAPÉ COMPARTILHADOS ===== */
+
+.header-verde {
+  background-color: var(--verde);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-verde .logo-texto {
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.header-verde .logo-sub {
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.footer-verde {
+  background-color: var(--verde);
+  padding: 32px 24px;
+  margin-top: auto;
+}
+
+/* ===== CARD CLARO (formulários) ===== */
+
+.card-form {
+  background-color: white;
+  border-radius: 12px;
+  padding: 28px;
+  border: 1px solid var(--borda-clara);
+  margin-bottom: 16px;
+}
+
+.card-form h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--verde);
+  margin-bottom: 20px;
 }
