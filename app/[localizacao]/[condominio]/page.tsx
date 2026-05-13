@@ -1,621 +1,181 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
-import { useParams } from 'next/navigation'
-
-type Condominio = {
-  id: string
-  slug: string
-  nome: string
-  endereco: string
-  horario_limite: string
-  regras: string | null
-  localizacoes?: { nome: string } | null
-}
-
-type Unidade = {
-  id: string
-  numero: string
-}
-
-type Reserva = {
-  id: string
-  data: string
-  unidade_id: string
-  nome_morador: string
-  unidades_guardasol: { numero: string } | null
-}
-
-export default function ReservaMorador() {
-  const params = useParams()
-  const localizacaoSlug = params.localizacao as string
-  const condominioSlug = params.condominio as string
-
-  const [condo, setCondo] = useState<Condominio | null>(null)
-  const [unidades, setUnidades] = useState<Unidade[]>([])
-  const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState('')
-
-  // Estado da tela 1 (entrada)
-  const [autenticado, setAutenticado] = useState(false)
-  const [aptoSelecionado, setAptoSelecionado] = useState('')
-  const [nomeMorador, setNomeMorador] = useState('')
-  const [unidadeAtual, setUnidadeAtual] = useState<Unidade | null>(null)
-
-  // Estado da tela 2 (calendário)
-  const [mesAtual, setMesAtual] = useState(() => {
-    const hoje = new Date()
-    const mes = hoje.getMonth()
-    const ano = hoje.getFullYear()
-    return { ano, mes }
-  })
-  const [reservasMes, setReservasMes] = useState<Reserva[]>([])
-  const [processando, setProcessando] = useState<string | null>(null)
-  const [finalizado, setFinalizado] = useState(false)
-
-  // Carrega condomínio e unidades
-  useEffect(() => {
-    async function carregar() {
-      const { data: localizacao } = await supabase
-        .from('localizacoes')
-        .select('id')
-        .eq('slug', localizacaoSlug)
-        .single()
-
-      if (!localizacao) {
-        setErro('Condomínio não encontrado.')
-        setCarregando(false)
-        return
-      }
-
-      const { data: condoData } = await supabase
-        .from('condominios_guardasol')
-        .select('*, localizacoes(nome)')
-        .eq('slug', condominioSlug)
-        .eq('localizacao_id', localizacao.id)
-        .single()
-
-      if (!condoData) {
-        setErro('Condomínio não encontrado.')
-        setCarregando(false)
-        return
-      }
-
-      setCondo(condoData as Condominio)
-
-      const { data: unidadesData } = await supabase
-        .from('unidades_guardasol')
-        .select('id, numero')
-        .eq('condominio_id', condoData.id)
-        .order('numero', { ascending: true })
-
-      setUnidades((unidadesData as Unidade[]) || [])
-      setCarregando(false)
-    }
-
-    carregar()
-  }, [localizacaoSlug, condominioSlug])
-
-  // Carrega reservas do mês quando entra na tela do calendário ou muda mês
-  useEffect(() => {
-    if (!autenticado || !condo) return
-    carregarReservasMes()
-  }, [autenticado, mesAtual, condo])
-
-  async function carregarReservasMes() {
-    if (!condo) return
-
-    const primeiroDia = new Date(mesAtual.ano, mesAtual.mes, 1).toISOString().split('T')[0]
-    const ultimoDia = new Date(mesAtual.ano, mesAtual.mes + 1, 0).toISOString().split('T')[0]
-
-    const { data } = await supabase
-      .from('reservas_guardasol')
-      .select('*, unidades_guardasol(numero)')
-      .eq('condominio_id', condo.id)
-      .gte('data', primeiroDia)
-      .lte('data', ultimoDia)
-
-    setReservasMes((data as Reserva[]) || [])
-  }
-
-  function entrar(e: React.FormEvent) {
-    e.preventDefault()
-    setErro('')
-
-    const unidade = unidades.find(u => u.numero === aptoSelecionado.trim())
-    if (!unidade) {
-      setErro(`Apto ${aptoSelecionado} não encontrado neste condomínio.`)
-      return
-    }
-
-    if (!nomeMorador.trim()) {
-      setErro('Informe seu nome.')
-      return
-    }
-
-    setUnidadeAtual(unidade)
-    setAutenticado(true)
-  }
-
-  function sairConta() {
-    setAutenticado(false)
-    setAptoSelecionado('')
-    setNomeMorador('')
-    setUnidadeAtual(null)
-  }
-
-  // Verifica se passou do horário limite hoje
-  function passouHorarioLimite(): boolean {
-    if (!condo?.horario_limite) return false
-    const agora = new Date()
-    const [hora, min] = condo.horario_limite.split(':').map(Number)
-    const limite = new Date()
-    limite.setHours(hora, min, 0, 0)
-    return agora >= limite
-  }
-
-  function isDataPassada(dataStr: string): boolean {
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const data = new Date(dataStr + 'T00:00:00')
-    return data < hoje
-  }
-
-  function isHoje(dataStr: string): boolean {
-    const hoje = new Date().toISOString().split('T')[0]
-    return dataStr === hoje
-  }
-
-
-  function reservaDoDia(dataStr: string): Reserva | null {
-    if (!unidadeAtual) return null
-    return reservasMes.find(r => r.data === dataStr && r.unidade_id === unidadeAtual.id) || null
-  }
-
-  function outrosAptosNoDia(dataStr: string): Reserva[] {
-    if (!unidadeAtual) return []
-    return reservasMes.filter(r => r.data === dataStr && r.unidade_id !== unidadeAtual.id)
-  }
-
-  async function toggleReserva(dataStr: string) {
-    if (!condo || !unidadeAtual) return
-    if (processando) return
-
-    // Validações
-    if (isDataPassada(dataStr)) return
-    if (isHoje(dataStr) && passouHorarioLimite()) {
-      alert(`Já passou do horário limite (${condo.horario_limite?.slice(0, 5)}). Para hoje não é mais possível solicitar.`)
-      return
-    }
-
-    setProcessando(dataStr)
-    const reservaExistente = reservaDoDia(dataStr)
-
-    if (reservaExistente) {
-      // Cancelar
-      const { error } = await supabase
-        .from('reservas_guardasol')
-        .delete()
-        .eq('id', reservaExistente.id)
-
-      if (error) {
-        alert('Erro ao cancelar: ' + error.message)
-      }
-    } else {
-      // Criar
-      const { error } = await supabase
-        .from('reservas_guardasol')
-        .insert({
-          condominio_id: condo.id,
-          unidade_id: unidadeAtual.id,
-          data: dataStr,
-          nome_morador: nomeMorador.trim(),
-        })
-
-      if (error) {
-        if (error.message.includes('duplicate') || error.code === '23505') {
-          alert('Esta unidade já tem uma reserva para este dia.')
-        } else {
-          alert('Erro ao reservar: ' + error.message)
-        }
-      }
-    }
-
-    await carregarReservasMes()
-    setProcessando(null)
-  }
-
-  function mudarMes(delta: number) {
-    setMesAtual(prev => {
-      const novoMes = prev.mes + delta
-      if (novoMes < 0) return { ano: prev.ano - 1, mes: 11 }
-      if (novoMes > 11) return { ano: prev.ano + 1, mes: 0 }
-      return { ano: prev.ano, mes: novoMes }
-    })
-  }
-
-  function gerarGrid(): (string | null)[] {
-    const primeiroDia = new Date(mesAtual.ano, mesAtual.mes, 1)
-    const ultimoDia = new Date(mesAtual.ano, mesAtual.mes + 1, 0)
-    const diaSemanaInicio = primeiroDia.getDay() // 0 = domingo
-
-    const grid: (string | null)[] = []
-    // Espaços vazios antes do dia 1
-    for (let i = 0; i < diaSemanaInicio; i++) {
-      grid.push(null)
-    }
-    // Dias do mês
-    for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
-      const dataStr = `${mesAtual.ano}-${String(mesAtual.mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
-      grid.push(dataStr)
-    }
-    return grid
-  }
-
-  const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-  const nomesDiasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-
-  // Loading
-  if (carregando) {
-    return (
-      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#555' }}>Carregando...</div>
-      </main>
-    )
-  }
-
-  // Erro / condomínio não encontrado
-  if (erro && !condo) {
-    return (
-      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
-          <a href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
-          </a>
-        </header>
-        <section style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: 22, color: '#00210D', marginBottom: 12 }}>Condomínio não encontrado</h1>
-            <p style={{ color: '#555', marginBottom: 20 }}>O link que você acessou não existe ou foi removido.</p>
-            <a href="/" style={{ color: '#00210D', textDecoration: 'underline' }}>Voltar para o início</a>
-          </div>
-        </section>
-      </main>
-    )
-  }
-
-  // TELA 1 — Entrada (apto + nome)
-  if (!autenticado) {
-    return (
-      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
-          <a href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
-          </a>
-        </header>
-
-        <section style={{ flex: 1, padding: '40px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {condo?.localizacoes?.nome}
-            </div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, color: '#00210D', marginBottom: 6 }}>{condo?.nome}</h1>
-            <p style={{ fontSize: 14, color: '#555' }}>
-              Reserve seu kit de praia para os dias desejados
-            </p>
-          </div>
-
-          <div className="card-form">
-            <form onSubmit={entrar}>
-              <div style={{ marginBottom: 16 }}>
-                <label>Número do apto *</label>
-                <input
-                  value={aptoSelecionado}
-                  onChange={e => setAptoSelecionado(e.target.value)}
-                  placeholder="Ex: 101"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label>Seu nome *</label>
-                <input
-                  value={nomeMorador}
-                  onChange={e => setNomeMorador(e.target.value)}
-                  placeholder="Nome completo"
-                  required
-                />
-              </div>
-
-              {erro && (
-                <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#B91C1C' }}>
-                  {erro}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}
-              >
-                Continuar
-              </button>
-            </form>
-          </div>
-
-          {condo?.regras && (
-            <div style={{ marginTop: 20, padding: '14px 18px', backgroundColor: '#FAF6EE', borderRadius: 10, fontSize: 13, color: '#555' }}>
-              <div style={{ fontWeight: 600, color: '#00210D', marginBottom: 6 }}>📌 Regras do condomínio</div>
-              {condo.regras}
-            </div>
-          )}
-        </section>
-
-        <footer style={{ backgroundColor: '#00210D', padding: '24px' }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-              Guarda-Sol na Praia · {new Date().getFullYear()}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>powered by</span>
-              <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-                <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 32, borderRadius: 4 }} />
-                <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>Safe Season</div>
-              </a>
-            </div>
-          </div>
-        </footer>
-      </main>
-    )
-  }
-
-  // TELA FINALIZADO
-  if (finalizado) {
-    return (
-      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
-          <a href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
-          </a>
-        </header>
-        <section style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
-          <div>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🌴</div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 12 }}>Obrigado por contribuir!</h1>
-            <p style={{ fontSize: 14, color: '#555', marginBottom: 8 }}>{condo?.nome} · Apto {unidadeAtual?.numero}</p>
-            <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Suas reservas foram registradas.</p>
-            <button
-              onClick={() => setFinalizado(false)}
-              style={{ backgroundColor: 'transparent', color: '#00210D', border: '1px solid #00210D', fontWeight: 600, padding: '12px 32px', borderRadius: 999, cursor: 'pointer', fontSize: 14 }}
-            >
-              Voltar e editar
-            </button>
-          </div>
-        </section>
-        <footer style={{ backgroundColor: '#00210D', padding: '24px' }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>Guarda-Sol na Praia · {new Date().getFullYear()}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>powered by</span>
-              <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-                <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 32, borderRadius: 4 }} />
-                <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>Safe Season</div>
-              </a>
-            </div>
-          </div>
-        </footer>
-      </main>
-    )
-  }
-
-  // TELA 2 — Calendário
-  const grid = gerarGrid()
-  const totalReservasMorador = reservasMes.filter(r => r.unidade_id === unidadeAtual?.id).length
-
+export default function Home() {
   return (
-    <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ backgroundColor: '#00210D', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <a href="/" style={{ textDecoration: 'none' }}>
-          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
-          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
-        </a>
-        <button
-          onClick={sairConta}
-          style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 999, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}
-        >
-          Sair
-        </button>
+    <main style={{ minHeight: '100vh', backgroundColor: 'white', color: '#00210D' }}>
+
+      {/* HEADER VERDE */}
+      <header style={{ backgroundColor: '#00210D', padding: '18px 20px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>
+              GUARDA-SOL NA PRAIA
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>
+              by SS Condo
+            </div>
+          </div>
+          <a href="/cadastro" className="btn-header-cadastro" style={{ backgroundColor: 'white', color: '#00210D', padding: '10px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            Cadastrar grátis
+          </a>
+        </div>
       </header>
 
-      <section style={{ flex: 1, padding: '32px 24px', maxWidth: 720, margin: '0 auto', width: '100%' }}>
+      {/* HERO COM MOCKUPS */}
+      <section style={{ padding: '40px 20px', maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 32, alignItems: 'center' }}>
 
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>
-            {condo?.nome} · Apto {unidadeAtual?.numero}
+          <div>
+            <h1 style={{ fontSize: 'clamp(26px, 6vw, 36px)', fontWeight: 700, color: '#00210D', lineHeight: 1.15, marginBottom: 16 }}>
+              Organize os guarda-sóis do seu condomínio
+            </h1>
+            <p style={{ fontSize: 16, color: '#555', lineHeight: 1.6, marginBottom: 28 }}>
+              Aumente a eficiência da portaria, reduza confusão entre moradores.
+            </p>
+            <a href="/cadastro" style={{ display: 'inline-block', backgroundColor: '#00210D', color: 'white', padding: '14px 30px', borderRadius: 999, fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>
+              Cadastrar meu condomínio grátis
+            </a>
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#00210D' }}>
-            Olá, {nomeMorador.split(' ')[0]}! 🌴
-          </h1>
-          <p style={{ fontSize: 14, color: '#555', marginTop: 6 }}>
-            Marque os dias que você quer kit de praia montado.
+
+          {/* MOCKUPS DOS CELULARES */}
+          <div style={{ position: 'relative', height: 300, maxWidth: 340, margin: '0 auto', width: '100%' }}>
+
+            <div style={{ position: 'absolute', right: 8, top: 16, width: 130, height: 50, backgroundColor: '#C0AB60', borderRadius: 4 }}></div>
+            <div style={{ position: 'absolute', right: 0, bottom: 24, width: 48, height: 90, backgroundColor: '#00210D', borderRadius: 4 }}></div>
+
+            {/* Celular 1 - Morador */}
+            <div style={{ position: 'absolute', left: 8, top: 40, width: 140, height: 250, backgroundColor: '#1a1a1a', borderRadius: 24, padding: 8, transform: 'rotate(-6deg)', boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }}>
+              <div style={{ backgroundColor: '#FAF6EE', borderRadius: 18, height: '100%', padding: 10, boxSizing: 'border-box' }}>
+                <div style={{ fontSize: 9, color: '#888', textAlign: 'center', marginBottom: 4 }}>9:41</div>
+                <div style={{ backgroundColor: '#00210D', color: 'white', padding: 5, borderRadius: 5, fontSize: 10, textAlign: 'center', marginBottom: 6, fontWeight: 600 }}>Apto 304</div>
+                <div style={{ fontSize: 9, color: '#00210D', fontWeight: 600, marginBottom: 4 }}>Maio 2026</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, fontSize: 8 }}>
+                  <div style={{ textAlign: 'center', color: '#999' }}>D</div>
+                  <div style={{ textAlign: 'center', color: '#999' }}>S</div>
+                  <div style={{ textAlign: 'center', color: '#999' }}>T</div>
+                  <div style={{ textAlign: 'center', color: '#999' }}>Q</div>
+                  <div style={{ textAlign: 'center', color: '#999' }}>Q</div>
+                  <div style={{ textAlign: 'center', color: '#999' }}>S</div>
+                  <div style={{ textAlign: 'center', color: '#999' }}>S</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#ccc' }}>5</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>6</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>7</div>
+                  <div style={{ textAlign: 'center', padding: 2, backgroundColor: '#00210D', color: 'white', borderRadius: 3 }}>8</div>
+                  <div style={{ textAlign: 'center', padding: 2, backgroundColor: '#00210D', color: 'white', borderRadius: 3 }}>9</div>
+                  <div style={{ textAlign: 'center', padding: 2, backgroundColor: '#00210D', color: 'white', borderRadius: 3 }}>10</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>11</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>12</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>13</div>
+                  <div style={{ textAlign: 'center', padding: 2, backgroundColor: '#00210D', color: 'white', borderRadius: 3 }}>14</div>
+                  <div style={{ textAlign: 'center', padding: 2, backgroundColor: '#00210D', color: 'white', borderRadius: 3 }}>15</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>16</div>
+                  <div style={{ textAlign: 'center', padding: 2, color: '#00210D' }}>17</div>
+                </div>
+                <div style={{ backgroundColor: '#C0AB60', color: 'white', padding: 5, borderRadius: 6, fontSize: 10, textAlign: 'center', fontWeight: 600, marginTop: 8 }}>Confirmar</div>
+              </div>
+            </div>
+
+            {/* Celular 2 - Portaria */}
+            <div style={{ position: 'absolute', right: 20, top: 0, width: 140, height: 260, backgroundColor: '#1a1a1a', borderRadius: 24, padding: 8, transform: 'rotate(8deg)', boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }}>
+              <div style={{ backgroundColor: 'white', borderRadius: 18, height: '100%', padding: 10, boxSizing: 'border-box' }}>
+                <div style={{ fontSize: 9, color: '#888', textAlign: 'center', marginBottom: 4 }}>9:41</div>
+                <div style={{ fontSize: 8, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Portaria</div>
+                <div style={{ fontSize: 11, color: '#00210D', fontWeight: 700, marginBottom: 8 }}>Lista de hoje</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FAF6EE', padding: '6px 8px', borderRadius: 6, marginBottom: 8 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#00210D' }}>12</div>
+                  <div style={{ fontSize: 9, color: '#555' }}>kits hoje</div>
+                </div>
+                {[
+                  { n: '101', name: 'João' },
+                  { n: '304', name: 'Maria' },
+                  { n: '502', name: 'Pedro' },
+                  { n: '706', name: 'Ana' },
+                ].map((apto, i) => (
+                  <div key={i} style={{ fontSize: 9, color: '#00210D', padding: '4px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Apto {apto.n}</span>
+                    <span style={{ color: '#C0AB60' }}>✓</span>
+                  </div>
+                ))}
+                <div style={{ backgroundColor: '#00210D', color: 'white', padding: 5, borderRadius: 6, fontSize: 9, textAlign: 'center', fontWeight: 600, marginTop: 8 }}>📄 Gerar PDF</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* DIVISOR EM ZIGZAG */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px 40px' }}>
+        <div style={{ height: 4, backgroundColor: '#00210D', position: 'relative' }}>
+          <div style={{ position: 'absolute', right: 60, bottom: -10, width: 100, height: 20, backgroundColor: '#00210D' }}></div>
+        </div>
+      </div>
+
+      {/* COMO FUNCIONA */}
+      <section style={{ padding: '24px 20px 64px', maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <h2 style={{ fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 700, color: '#00210D', marginBottom: 12 }}>Como funciona</h2>
+          <p style={{ fontSize: 15, color: '#555', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
+            O proprietário reserva os dias pelo celular. A portaria já sabe antecipadamente quantos guarda-sóis levar para a praia.
           </p>
         </div>
 
-        {/* Resumo */}
-        <div className="card-form" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 13, color: '#555' }}>Suas reservas neste mês</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#00210D', lineHeight: 1.2, marginTop: 2 }}>
-              {totalReservasMorador}
-            </div>
-          </div>
-          {condo?.horario_limite && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Horário limite</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#00210D', marginTop: 2 }}>
-                {condo.horario_limite.slice(0, 5)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 24 }}>
+          {[
+            { num: '1', titulo: 'Síndico cadastra', texto: 'Registra o condomínio e as unidades em minutos.' },
+            { num: '2', titulo: 'Morador reserva', texto: 'Acessa pelo QR code ou link e marca os dias.' },
+            { num: '3', titulo: 'Portaria leva', texto: 'Recebe a lista do dia e leva os kits para a praia.' },
+          ].map((item) => (
+            <div key={item.num} style={{ textAlign: 'center', padding: '0 12px' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#00210D', color: 'white', fontWeight: 700, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                {item.num}
               </div>
+              <div style={{ fontWeight: 700, fontSize: 17, color: '#00210D', marginBottom: 8 }}>{item.titulo}</div>
+              <div style={{ fontSize: 14, color: '#555', lineHeight: 1.6 }}>{item.texto}</div>
             </div>
-          )}
+          ))}
         </div>
-
-        {/* Navegação do mês */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <button
-            onClick={() => mudarMes(-1)}
-            style={{ backgroundColor: 'transparent', border: '1px solid #E8E4DC', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', color: '#00210D', fontSize: 14 }}
-          >
-            ← Anterior
-          </button>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#00210D' }}>
-            {nomesMeses[mesAtual.mes]} {mesAtual.ano}
-          </div>
-          <button
-            onClick={() => mudarMes(1)}
-            style={{ backgroundColor: 'transparent', border: '1px solid #E8E4DC', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', color: '#00210D', fontSize: 14 }}
-          >
-            Próximo →
-          </button>
-        </div>
-
-        {/* Calendário */}
-        <div className="card-form" style={{ padding: 16 }}>
-          {/* Cabeçalho dos dias da semana */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
-            {nomesDiasSemana.map(dia => (
-              <div key={dia} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#888', padding: '6px 0', textTransform: 'uppercase' }}>
-                {dia}
-              </div>
-            ))}
-          </div>
-
-          {/* Grid do calendário */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-            {grid.map((dataStr, idx) => {
-              if (!dataStr) return <div key={`empty-${idx}`} />
-
-              const dia = parseInt(dataStr.split('-')[2])
-              const eHoje = isHoje(dataStr)
-              const passada = isDataPassada(dataStr)
-              const minhaReserva = reservaDoDia(dataStr)
-              const outras = outrosAptosNoDia(dataStr)
-              const bloqueadoHoje = eHoje && passouHorarioLimite()
-              const desabilitado = passada || bloqueadoHoje
-
-              let bgColor = 'white'
-              let color = '#00210D'
-              let borderColor = '#E8E4DC'
-
-              if (minhaReserva) {
-                bgColor = '#00210D'
-                color = 'white'
-                borderColor = '#00210D'
-              } else if (desabilitado) {
-                bgColor = '#F5F5F5'
-                color = '#BBB'
-                borderColor = '#EEE'
-              }
-
-              return (
-                <button
-                  key={dataStr}
-                  onClick={() => toggleReserva(dataStr)}
-                  disabled={desabilitado || processando === dataStr}
-                  style={{
-                    aspectRatio: '1',
-                    backgroundColor: bgColor,
-                    color: color,
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: 8,
-                    cursor: desabilitado ? 'not-allowed' : 'pointer',
-                    fontSize: 14,
-                    fontWeight: minhaReserva ? 600 : 400,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                    padding: 4,
-                    transition: 'all 0.15s',
-                  }}
-                  title={
-                    minhaReserva
-                      ? 'Sua reserva (clique para cancelar)'
-                      : outras.length > 0
-                      ? `${outras.length} outro(s) apto(s) já reservaram`
-                      : passada
-                      ? 'Data passada'
-                      : bloqueadoHoje
-                      ? `Passou do horário limite (${condo?.horario_limite?.slice(0, 5)})`
-                      : 'Clique para reservar'
-                  }
-                >
-                  <div style={{ fontSize: eHoje ? 15 : 14, fontWeight: eHoje ? 700 : (minhaReserva ? 600 : 400) }}>
-                    {dia}
-                  </div>
-                  {outras.length > 0 && !minhaReserva && (
-                    <div style={{ fontSize: 9, color: '#888', marginTop: 2 }}>
-                      {outras.length} {outras.length === 1 ? 'apto' : 'aptos'}
-                    </div>
-                  )}
-                  {minhaReserva && (
-                    <div style={{ fontSize: 10, opacity: 0.85, marginTop: 1 }}>✓</div>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Legenda */}
-        <div style={{ marginTop: 16, padding: '14px 18px', backgroundColor: '#FAF6EE', borderRadius: 10, fontSize: 12, color: '#555' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 14, height: 14, backgroundColor: '#00210D', borderRadius: 4 }} />
-              <span>Sua reserva</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 14, height: 14, backgroundColor: 'white', border: '1px solid #E8E4DC', borderRadius: 4 }} />
-              <span>Disponível</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 14, height: 14, backgroundColor: '#F5F5F5', border: '1px solid #EEE', borderRadius: 4 }} />
-              <span>Indisponível</span>
-            </div>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: '#888' }}>
-            Clique em qualquer dia disponível para reservar ou cancelar.
-          </div>
-        </div>
-
-        {/* Botão Finalizar */}
-        <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <button
-            onClick={() => setFinalizado(true)}
-            style={{ backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '14px 40px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 15 }}
-          >
-            Finalizar
-          </button>
-        </div>
-
       </section>
 
-      <footer style={{ backgroundColor: '#00210D', padding: '24px', marginTop: 32 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+      {/* CTA FINAL */}
+      <section style={{ backgroundColor: '#FAF6EE', padding: '56px 20px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 700, color: '#00210D', marginBottom: 10 }}>
+          Quer isso no seu condomínio?
+        </h2>
+        <p style={{ fontSize: 14, color: '#555', marginBottom: 28, lineHeight: 1.6, maxWidth: 480, margin: '0 auto 28px' }}>
+          Cadastre agora e compartilhe o link com os moradores em minutos.
+        </p>
+        <a href="/cadastro" style={{ display: 'inline-block', backgroundColor: '#00210D', color: 'white', padding: '14px 32px', borderRadius: 999, fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>
+          Cadastrar meu condomínio grátis
+        </a>
+        <p style={{ marginTop: 14, fontSize: 13, color: '#555', fontStyle: 'italic' }}>
+          Um serviço gratuito oferecido por{' '}
+          <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ color: '#00210D', fontWeight: 600, textDecoration: 'underline' }}>
+            www.sscondo.com.br
+          </a>
+        </p>
+      </section>
+
+      {/* RODAPÉ */}
+      <footer style={{ backgroundColor: '#00210D', padding: '32px 20px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 20, textAlign: 'center' }}>
+
           <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
             Guarda-Sol na Praia · {new Date().getFullYear()}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>powered by</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>
+              powered by
+            </span>
             <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
               <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 32, borderRadius: 4 }} />
-              <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>Safe Season</div>
+              <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>
+                Safe Season
+              </div>
             </a>
           </div>
+
         </div>
       </footer>
 
