@@ -44,7 +44,7 @@ export default function ReservaMorador() {
   const [unidadeAtual, setUnidadeAtual] = useState<Unidade | null>(null)
 
   // Estado da tela 2 (calendário)
-  const [mesAtual] = useState(() => {
+  const [mesAtual, setMesAtual] = useState(() => {
     const hoje = new Date()
     const mes = hoje.getMonth() === 11 ? 0 : hoje.getMonth() + 1
     const ano = hoje.getMonth() === 11 ? hoje.getFullYear() + 1 : hoje.getFullYear()
