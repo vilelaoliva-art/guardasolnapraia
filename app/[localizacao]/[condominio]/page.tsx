@@ -46,8 +46,8 @@ export default function ReservaMorador() {
   // Estado da tela 2 (calendário)
   const [mesAtual, setMesAtual] = useState(() => {
     const hoje = new Date()
-    const mes = hoje.getMonth() === 11 ? 0 : hoje.getMonth() + 1
-    const ano = hoje.getMonth() === 11 ? hoje.getFullYear() + 1 : hoje.getFullYear()
+    const mes = hoje.getMonth()
+    const ano = hoje.getFullYear()
     return { ano, mes }
   })
   const [reservasMes, setReservasMes] = useState<Reserva[]>([])
@@ -167,13 +167,6 @@ export default function ReservaMorador() {
     return dataStr === hoje
   }
 
-  function isForaMesProximo(dataStr: string): boolean {
-    const hoje = new Date()
-    const mesProximo = hoje.getMonth() === 11 ? 0 : hoje.getMonth() + 1
-    const anoProximo = hoje.getMonth() === 11 ? hoje.getFullYear() + 1 : hoje.getFullYear()
-    const data = new Date(dataStr + 'T00:00:00')
-    return !(data.getMonth() === mesProximo && data.getFullYear() === anoProximo)
-  }
 
   function reservaDoDia(dataStr: string): Reserva | null {
     if (!unidadeAtual) return null
@@ -511,8 +504,7 @@ export default function ReservaMorador() {
               const minhaReserva = reservaDoDia(dataStr)
               const outras = outrosAptosNoDia(dataStr)
               const bloqueadoHoje = eHoje && passouHorarioLimite()
-              const foraMesProximo = isForaMesProximo(dataStr)
-              const desabilitado = passada || bloqueadoHoje || foraMesProximo
+              const desabilitado = passada || bloqueadoHoje
 
               let bgColor = 'white'
               let color = '#00210D'
