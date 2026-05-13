@@ -387,7 +387,7 @@ export default function ReservaMorador() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>🌴</div>
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 12 }}>Obrigado por contribuir!</h1>
             <p style={{ fontSize: 14, color: '#555', marginBottom: 8 }}>{condo?.nome} · Apto {unidadeAtual?.numero}</p>
-            <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Suas reservas foram registradas para {nomesMeses[mesAtual.mes]}.</p>
+            <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Suas reservas foram registradas.</p>
             <button
               onClick={() => setFinalizado(false)}
               style={{ backgroundColor: 'transparent', color: '#00210D', border: '1px solid #00210D', fontWeight: 600, padding: '12px 32px', borderRadius: 999, cursor: 'pointer', fontSize: 14 }}
