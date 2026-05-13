@@ -164,6 +164,15 @@ export default function ReservaMorador() {
     return dataStr === hoje
   }
 
+  function isAlem30Dias(dataStr: string): boolean {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const limite = new Date(hoje)
+    limite.setDate(hoje.getDate() + 30)
+    const data = new Date(dataStr + 'T00:00:00')
+    return data > limite
+  }
+
   function reservaDoDia(dataStr: string): Reserva | null {
     if (!unidadeAtual) return null
     return reservasMes.find(r => r.data === dataStr && r.unidade_id === unidadeAtual.id) || null
@@ -460,7 +469,8 @@ export default function ReservaMorador() {
               const minhaReserva = reservaDoDia(dataStr)
               const outras = outrosAptosNoDia(dataStr)
               const bloqueadoHoje = eHoje && passouHorarioLimite()
-              const desabilitado = passada || bloqueadoHoje
+              const alem30Dias = isAlem30Dias(dataStr)
+              const desabilitado = passada || bloqueadoHoje || alem30Dias
 
               let bgColor = 'white'
               let color = '#00210D'
