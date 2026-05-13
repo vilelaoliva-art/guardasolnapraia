@@ -9,6 +9,8 @@ export default function Cadastro() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [unidadesTexto, setUnidadesTexto] = useState('')
+  const [verSenhaSindico, setVerSenhaSindico] = useState(false)
+  const [verSenhaPortaria, setVerSenhaPortaria] = useState(false)
   const [form, setForm] = useState({
     nome: '',
     endereco: '',
@@ -17,6 +19,7 @@ export default function Cadastro() {
     regras: '',
     sindico_nome: '',
     sindico_contato: '',
+    sindico_email: '',
     senha_sindico: '',
     senha_portaria: '',
   })
@@ -224,7 +227,7 @@ export default function Cadastro() {
 
             <div>
               <label>Contato (telefone ou email) *</label>
-              <input name="sindico_contato" value={form.sindico_contato} onChange={handleChange} placeholder="(11) 99999-9999" required />
+              <input name="sindico_contato" value={form.sindico_contato} onChange={handleChange} placeholder="(11) 99999-9999" required /><div style={{ marginTop: 16 }}><label>Email do síndico *</label><input name="sindico_email" type="email" value={form.sindico_email} onChange={handleChange} placeholder="seu@email.com" required /></div>
             </div>
           </div>
 
@@ -236,12 +239,12 @@ export default function Cadastro() {
 
             <div style={{ marginBottom: 16 }}>
               <label>Senha do síndico *</label>
-              <input name="senha_sindico" type="password" value={form.senha_sindico} onChange={handleChange} placeholder="Senha para o painel do síndico" required />
+              <div style={{ position: "relative" }}><input name="senha_sindico" type={verSenhaSindico ? "text" : "password"} value={form.senha_sindico} onChange={handleChange} placeholder="Senha para o painel do síndico" required style={{ paddingRight: 44 }} /><button type="button" onClick={() => setVerSenhaSindico(!verSenhaSindico)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: "#00210D", fontWeight: 600, padding: "4px 8px", textDecoration: "underline" }}>{verSenhaSindico ? "Ocultar" : "Mostrar"}</button></div>
             </div>
 
             <div>
               <label>Senha da portaria *</label>
-              <input name="senha_portaria" type="password" value={form.senha_portaria} onChange={handleChange} placeholder="Senha para a portaria" required />
+              <div style={{ position: "relative" }}><input name="senha_portaria" type={verSenhaPortaria ? "text" : "password"} value={form.senha_portaria} onChange={handleChange} placeholder="Senha para a portaria" required style={{ paddingRight: 44 }} /><button type="button" onClick={() => setVerSenhaPortaria(!verSenhaPortaria)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: "#00210D", fontWeight: 600, padding: "4px 8px", textDecoration: "underline" }}>{verSenhaPortaria ? "Ocultar" : "Mostrar"}</button></div>
             </div>
           </div>
 
