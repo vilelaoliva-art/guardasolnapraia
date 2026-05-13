@@ -44,12 +44,15 @@ export default function ReservaMorador() {
   const [unidadeAtual, setUnidadeAtual] = useState<Unidade | null>(null)
 
   // Estado da tela 2 (calendário)
-  const [mesAtual, setMesAtual] = useState(() => {
+  const [mesAtual] = useState(() => {
     const hoje = new Date()
-    return { ano: hoje.getFullYear(), mes: hoje.getMonth() }
+    const mes = hoje.getMonth() === 11 ? 0 : hoje.getMonth() + 1
+    const ano = hoje.getMonth() === 11 ? hoje.getFullYear() + 1 : hoje.getFullYear()
+    return { ano, mes }
   })
   const [reservasMes, setReservasMes] = useState<Reserva[]>([])
   const [processando, setProcessando] = useState<string | null>(null)
+  const [finalizado, setFinalizado] = useState(false)
 
   // Carrega condomínio e unidades
   useEffect(() => {
@@ -164,13 +167,12 @@ export default function ReservaMorador() {
     return dataStr === hoje
   }
 
-  function isAlem30Dias(dataStr: string): boolean {
+  function isForaMesProximo(dataStr: string): boolean {
     const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const limite = new Date(hoje)
-    limite.setDate(hoje.getDate() + 30)
+    const mesProximo = hoje.getMonth() === 11 ? 0 : hoje.getMonth() + 1
+    const anoProximo = hoje.getMonth() === 11 ? hoje.getFullYear() + 1 : hoje.getFullYear()
     const data = new Date(dataStr + 'T00:00:00')
-    return data > limite
+    return !(data.getMonth() === mesProximo && data.getFullYear() === anoProximo)
   }
 
   function reservaDoDia(dataStr: string): Reserva | null {
@@ -377,6 +379,46 @@ export default function ReservaMorador() {
     )
   }
 
+  // TELA FINALIZADO
+  if (finalizado) {
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
+          <a href="/" style={{ textDecoration: 'none' }}>
+            <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
+          </a>
+        </header>
+        <section style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🌴</div>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 12 }}>Obrigado por contribuir!</h1>
+            <p style={{ fontSize: 14, color: '#555', marginBottom: 8 }}>{condo?.nome} · Apto {unidadeAtual?.numero}</p>
+            <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Suas reservas foram registradas para {nomesMeses[mesAtual.mes]}.</p>
+            <button
+              onClick={() => setFinalizado(false)}
+              style={{ backgroundColor: 'transparent', color: '#00210D', border: '1px solid #00210D', fontWeight: 600, padding: '12px 32px', borderRadius: 999, cursor: 'pointer', fontSize: 14 }}
+            >
+              Voltar e editar
+            </button>
+          </div>
+        </section>
+        <footer style={{ backgroundColor: '#00210D', padding: '24px' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>Guarda-Sol na Praia · {new Date().getFullYear()}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>powered by</span>
+              <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+                <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 32, borderRadius: 4 }} />
+                <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>Safe Season</div>
+              </a>
+            </div>
+          </div>
+        </footer>
+      </main>
+    )
+  }
+
   // TELA 2 — Calendário
   const grid = gerarGrid()
   const totalReservasMorador = reservasMes.filter(r => r.unidade_id === unidadeAtual?.id).length
@@ -469,8 +511,8 @@ export default function ReservaMorador() {
               const minhaReserva = reservaDoDia(dataStr)
               const outras = outrosAptosNoDia(dataStr)
               const bloqueadoHoje = eHoje && passouHorarioLimite()
-              const alem30Dias = isAlem30Dias(dataStr)
-              const desabilitado = passada || bloqueadoHoje || alem30Dias
+              const foraMesProximo = isForaMesProximo(dataStr)
+              const desabilitado = passada || bloqueadoHoje || foraMesProximo
 
               let bgColor = 'white'
               let color = '#00210D'
@@ -556,6 +598,16 @@ export default function ReservaMorador() {
           <div style={{ marginTop: 8, fontSize: 11, color: '#888' }}>
             Clique em qualquer dia disponível para reservar ou cancelar.
           </div>
+        </div>
+
+        {/* Botão Finalizar */}
+        <div style={{ marginTop: 24, textAlign: 'center' }}>
+          <button
+            onClick={() => setFinalizado(true)}
+            style={{ backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '14px 40px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 15 }}
+          >
+            Finalizar
+          </button>
         </div>
 
       </section>
