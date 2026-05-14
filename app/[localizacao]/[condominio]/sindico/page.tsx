@@ -47,6 +47,34 @@ export default function PainelSindico() {
   const [novaUnidade, setNovaUnidade] = useState('')
   const [loadingUnidade, setLoadingUnidade] = useState(false)
   const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    async function checarSessao() {
+      const { data: localizacao } = await supabase
+        .from('localizacoes')
+        .select('id')
+        .eq('slug', localizacaoSlug)
+        .single()
+      if (!localizacao) return
+
+      const { data } = await supabase
+        .from('condominios_guardasol')
+        .select('*, localizacoes(nome, slug)')
+        .eq('slug', condominioSlug)
+        .eq('localizacao_id', localizacao.id)
+        .single()
+      if (!data) return
+
+      const autorizado = sessionStorage.getItem('sindico_auth_' + data.id) === 'true'
+      if (autorizado) {
+        setCondo(data as Condominio)
+        setAutenticado(true)
+        carregarReservasHoje(data.id)
+        carregarTotalUnidades(data.id)
+        carregarUnidades(data.id)
+      }
+    }
+    checarSessao()
+  }, [localizacaoSlug, condominioSlug])
 
   async function autenticar(e: React.FormEvent) {
     e.preventDefault()
@@ -246,15 +274,12 @@ export default function PainelSindico() {
   return (
     <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
 
-      <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
+      <header style={{ backgroundColor: '#00210D', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <a href="/" style={{ textDecoration: 'none' }}>
-          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>
-            GUARDA-SOL NA PRAIA
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>
-            by SS Condo
-          </div>
+          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
+          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
         </a>
+        <button onClick={() => { if (condo) sessionStorage.removeItem('sindico_auth_' + condo.id); setAutenticado(false); }} style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 999, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Sair</button>
       </header>
 
       <section style={{ flex: 1, padding: '40px 24px', maxWidth: 720, margin: '0 auto', width: '100%' }}>

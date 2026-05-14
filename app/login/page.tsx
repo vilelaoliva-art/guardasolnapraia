@@ -68,6 +68,7 @@ export default function Login() {
     }
 
     const locSlug = (data.localizacoes as unknown as { slug: string } | null)?.slug
+    sessionStorage.setItem('sindico_auth_' + condominioId, 'true')
     router.push(`/${locSlug}/${data.slug}/sindico`)
   }
 
