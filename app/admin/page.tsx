@@ -23,7 +23,7 @@ export default function Admin() {
   const [verSenha, setVerSenha] = useState(false)
   const [erroLogin, setErroLogin] = useState('')
 
-  const [aba, setAba] = useState<'pendentes' | 'todos'>('pendentes')
+  const [aba, setAba] = useState<'todos' | 'ativos' | 'aguardando' | 'pendentes'>('aguardando')
   const [condominios, setCondominios] = useState<Condominio[]>([])
   const [carregando, setCarregando] = useState(false)
   const [processando, setProcessando] = useState<string | null>(null)
@@ -57,9 +57,14 @@ export default function Admin() {
       .select('id, nome, slug, endereco, sindico_nome, sindico_contato, sindico_email, status, criado_em, aprovado_em, localizacoes(nome, slug)')
       .order('criado_em', { ascending: false })
 
-    if (aba === 'pendentes') {
+    if (aba === 'ativos') {
+      query = query.eq('status', 'ativo')
+    } else if (aba === 'aguardando') {
       query = query.eq('status', 'aguardando_aprovacao')
+    } else if (aba === 'pendentes') {
+      query = query.eq('status', 'pendente')
     }
+    // 'todos' não filtra nada
 
     const { data } = await query
     setCondominios((data as unknown as Condominio[]) || [])
@@ -377,7 +382,7 @@ export default function Admin() {
       </main>
     )
   }
-  
+
   // MODAL DE EDIÇÃO
   if (editando) {
     return (
@@ -467,17 +472,23 @@ export default function Admin() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid #E8E4DC' }}>
-          <button onClick={() => setAba('pendentes')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'pendentes' ? 700 : 500, color: aba === 'pendentes' ? '#00210D' : '#888', borderBottom: aba === 'pendentes' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
-            Aguardando aprovação
-          </button>
           <button onClick={() => setAba('todos')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'todos' ? 700 : 500, color: aba === 'todos' ? '#00210D' : '#888', borderBottom: aba === 'todos' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
             Todos
+          </button>
+          <button onClick={() => setAba('ativos')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'ativos' ? 700 : 500, color: aba === 'ativos' ? '#00210D' : '#888', borderBottom: aba === 'ativos' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
+            Ativos
+          </button>
+          <button onClick={() => setAba('aguardando')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'aguardando' ? 700 : 500, color: aba === 'aguardando' ? '#00210D' : '#888', borderBottom: aba === 'aguardando' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
+            Aguardando
+          </button>
+          <button onClick={() => setAba('pendentes')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'pendentes' ? 700 : 500, color: aba === 'pendentes' ? '#00210D' : '#888', borderBottom: aba === 'pendentes' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
+            Pendentes
           </button>
         </div>
 
         {carregando && <div style={{ textAlign: 'center', color: '#555', padding: 40 }}>Carregando...</div>}
 
-        {aba === 'todos' && (
+        {(
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
             <input
               type="text"
@@ -494,7 +505,7 @@ export default function Admin() {
 
         {!carregando && condominios.length === 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: 12, padding: 40, textAlign: 'center', color: '#555' }}>
-            {aba === 'pendentes' ? 'Nenhum cadastro aguardando aprovação.' : 'Nenhum condomínio cadastrado.'}
+            {aba === 'aguardando' ? 'Nenhum cadastro aguardando aprovação.' : aba === 'ativos' ? 'Nenhum condomínio ativo.' : aba === 'pendentes' ? 'Nenhum condomínio pendente.' : 'Nenhum condomínio cadastrado.'}
           </div>
         )}
 
