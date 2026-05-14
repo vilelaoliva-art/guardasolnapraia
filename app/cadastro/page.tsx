@@ -373,7 +373,16 @@ export default function Login() {
           {outraLocalizacao && (
             <div style={{ marginBottom: 16 }}>
               <label>Nome da localização *</label>
-              <input value={novaLocalizacaoNome} onChange={e => setNovaLocalizacaoNome(e.target.value)} placeholder="Ex: Maresias, Guarujá..." required />
+              <input 
+                list="localizacoes-sugestoes"
+                value={novaLocalizacaoNome} 
+                onChange={e => setNovaLocalizacaoNome(e.target.value)} 
+                placeholder="Ex: Maresias, Guarujá..." 
+                required 
+              />
+              <datalist id="localizacoes-sugestoes">
+                {localizacoes.map(l => <option key={l.id} value={l.nome} />)}
+              </datalist>
             </div>
           )}
 
