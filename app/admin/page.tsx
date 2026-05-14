@@ -27,6 +27,7 @@ export default function Admin() {
   const [condominios, setCondominios] = useState<Condominio[]>([])
   const [carregando, setCarregando] = useState(false)
   const [processando, setProcessando] = useState<string | null>(null)
+  const [estatisticas, setEstatisticas] = useState({ total: 0, ativos: 0, aguardando: 0, pendentes: 0 })
 
   const [editando, setEditando] = useState<Condominio | null>(null)
   const [formEdit, setFormEdit] = useState({
@@ -62,6 +63,23 @@ export default function Admin() {
   useEffect(() => {
     if (autenticado) carregar()
   }, [autenticado, aba])
+
+  useEffect(() => {
+    async function carregarEstatisticas() {
+      if (!autenticado) return
+      const { data } = await supabase
+        .from('condominios_guardasol')
+        .select('status')
+      const todos = data || []
+      setEstatisticas({
+        total: todos.length,
+        ativos: todos.filter(c => c.status === 'ativo').length,
+        aguardando: todos.filter(c => c.status === 'aguardando_aprovacao').length,
+        pendentes: todos.filter(c => c.status === 'pendente').length,
+      })
+    }
+    carregarEstatisticas()
+  }, [autenticado, condominios])
 
   async function aprovar(id: string) {
     if (!confirm('Aprovar este condomínio?')) return
@@ -223,6 +241,24 @@ export default function Admin() {
       </header>
 
       <section style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+          <div style={{ backgroundColor: 'white', border: '1px solid #E8E4DC', padding: '16px 18px', borderRadius: 10 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#00210D' }}>{estatisticas.total}</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Total</div>
+          </div>
+          <div style={{ backgroundColor: 'white', border: '1px solid #E8E4DC', padding: '16px 18px', borderRadius: 10 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#065F46' }}>{estatisticas.ativos}</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Ativos</div>
+          </div>
+          <div style={{ backgroundColor: 'white', border: '1px solid #E8E4DC', padding: '16px 18px', borderRadius: 10 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#92400E' }}>{estatisticas.aguardando}</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Aguardando</div>
+          </div>
+          <div style={{ backgroundColor: 'white', border: '1px solid #E8E4DC', padding: '16px 18px', borderRadius: 10 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#6B7280' }}>{estatisticas.pendentes}</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Pendentes</div>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid #E8E4DC' }}>
           <button onClick={() => setAba('pendentes')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'pendentes' ? 700 : 500, color: aba === 'pendentes' ? '#00210D' : '#888', borderBottom: aba === 'pendentes' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
             Aguardando aprovação
