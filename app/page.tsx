@@ -123,8 +123,7 @@ export default function Home() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>powered by</span>
             <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-              <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 32, borderRadius: 4 }} />
-              <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>Safe Season</div>
+              <span style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>SS Condo</span>
             </a>
           </div>
         </div>
