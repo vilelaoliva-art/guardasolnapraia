@@ -28,6 +28,7 @@ export default function Admin() {
   const [carregando, setCarregando] = useState(false)
   const [processando, setProcessando] = useState<string | null>(null)
   const [estatisticas, setEstatisticas] = useState({ total: 0, ativos: 0, aguardando: 0, pendentes: 0 })
+  const [busca, setBusca] = useState('')
 
   const [editando, setEditando] = useState<Condominio | null>(null)
   const [formEdit, setFormEdit] = useState({
@@ -270,13 +271,29 @@ export default function Admin() {
 
         {carregando && <div style={{ textAlign: 'center', color: '#555', padding: 40 }}>Carregando...</div>}
 
+        {aba === 'todos' && (
+          <div style={{ marginBottom: 16 }}>
+            <input
+              type="text"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar por condomínio, síndico ou email..."
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, backgroundColor: 'white', boxSizing: 'border-box' }}
+            />
+          </div>
+        )}
+
         {!carregando && condominios.length === 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: 12, padding: 40, textAlign: 'center', color: '#555' }}>
             {aba === 'pendentes' ? 'Nenhum cadastro aguardando aprovação.' : 'Nenhum condomínio cadastrado.'}
           </div>
         )}
 
-        {!carregando && condominios.map(c => (
+        {!carregando && condominios.filter(c => {
+          if (!busca.trim()) return true
+          const termo = busca.toLowerCase()
+          return (c.nome?.toLowerCase().includes(termo) || c.sindico_nome?.toLowerCase().includes(termo) || c.sindico_email?.toLowerCase().includes(termo))
+        }).map(c => (
           <div key={c.id} style={{ backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 12, border: '1px solid #E8E4DC' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 240 }}>
