@@ -1,4 +1,5 @@
 'use client'
+import LocalizadorCondominio from './LocalizadorCondominio'
 
 export default function Home() {
   return (
@@ -108,6 +109,7 @@ export default function Home() {
         </div>
       </section>
 
+      <LocalizadorCondominio />
       <section style={{ backgroundColor: '#FAF6EE', padding: '56px 20px', textAlign: 'center' }}>
         <h2 style={{ fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 700, color: '#00210D', marginBottom: 10 }}>Quer isso no seu condomínio?</h2>
         <p style={{ fontSize: 14, color: '#555', marginBottom: 28, lineHeight: 1.6, maxWidth: 480, margin: '0 auto 28px' }}>Cadastre agora e compartilhe o link com os moradores em minutos.</p>
