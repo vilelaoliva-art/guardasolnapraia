@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 
 type Localizacao = { id: string; nome: string; slug: string }
 type Condominio = { id: string; nome: string; slug: string; status: string }
+type Perfil = 'sindico' | 'portaria'
 
 const WHATSAPP_SUPORTE = '5513996655551'
 
@@ -16,6 +17,7 @@ export default function Login() {
   const [localizacaoId, setLocalizacaoId] = useState('')
   const [condominios, setCondominios] = useState<Condominio[]>([])
   const [condominioId, setCondominioId] = useState('')
+  const [perfil, setPerfil] = useState<Perfil | ''>('')
   const [senha, setSenha] = useState('')
   const [verSenha, setVerSenha] = useState(false)
   const [erro, setErro] = useState('')
@@ -42,35 +44,56 @@ export default function Login() {
     }
     carregar()
     setCondominioId('')
+    setPerfil('')
+    setSenha('')
   }, [localizacaoId])
+
+  // quando troca o condomínio, reseta perfil e senha
+  useEffect(() => {
+    setPerfil('')
+    setSenha('')
+  }, [condominioId])
 
   async function fazerLogin(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
     setCarregando(true)
 
-    if (!localizacaoId || !condominioId || !senha) {
+    if (!localizacaoId || !condominioId || !perfil || !senha) {
       setErro('Preencha todos os campos.')
       setCarregando(false)
       return
     }
 
+    const colunaSenha = perfil === 'sindico' ? 'senha_sindico' : 'senha_portaria'
+
     const { data } = await supabase
       .from('condominios_guardasol')
-      .select('senha_sindico, slug, localizacoes(slug)')
+      .select(`${colunaSenha}, slug, localizacoes(slug)`)
       .eq('id', condominioId)
       .single()
 
-    if (!data || data.senha_sindico !== senha) {
+    const senhaCorreta = (data as Record<string, unknown> | null)?.[colunaSenha] as string | undefined
+
+    if (!data || senhaCorreta !== senha) {
       setErro('Senha incorreta.')
       setCarregando(false)
       return
     }
 
     const locSlug = (data.localizacoes as unknown as { slug: string } | null)?.slug
-    sessionStorage.setItem('sindico_auth_' + condominioId, 'true')
-    router.push(`/${locSlug}/${data.slug}/sindico`)
+    const condoSlug = (data as unknown as { slug: string }).slug
+
+    if (perfil === 'sindico') {
+      sessionStorage.setItem('sindico_auth_' + condominioId, 'true')
+      router.push(`/${locSlug}/${condoSlug}/sindico`)
+    } else {
+      sessionStorage.setItem('portaria_auth_' + condominioId, 'true')
+      router.push(`/${locSlug}/${condoSlug}/portaria`)
+    }
   }
+
+  const labelSenha = perfil === 'portaria' ? 'Senha da portaria *' : 'Senha do síndico *'
 
   return (
     <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
@@ -84,7 +107,7 @@ export default function Login() {
       <section style={{ flex: 1, padding: '40px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
         <a href="/" style={{ color: '#555', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 20 }}>← Voltar</a>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>Fazer login</h1>
-        <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Acesso ao painel do síndico.</p>
+        <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Acesso ao painel do síndico ou da portaria.</p>
 
         <form onSubmit={fazerLogin}>
           <div className="card-form">
@@ -113,7 +136,47 @@ export default function Login() {
 
             {condominioId && (
               <div style={{ marginBottom: 16 }}>
-                <label>Senha do síndico *</label>
+                <label>Entrar como *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPerfil('sindico')}
+                    style={{
+                      padding: '12px',
+                      borderRadius: 8,
+                      border: '1px solid #00210D',
+                      backgroundColor: perfil === 'sindico' ? '#00210D' : 'white',
+                      color: perfil === 'sindico' ? 'white' : '#00210D',
+                      fontWeight: 600,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Síndico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPerfil('portaria')}
+                    style={{
+                      padding: '12px',
+                      borderRadius: 8,
+                      border: '1px solid #00210D',
+                      backgroundColor: perfil === 'portaria' ? '#00210D' : 'white',
+                      color: perfil === 'portaria' ? 'white' : '#00210D',
+                      fontWeight: 600,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Portaria
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {condominioId && perfil && (
+              <div style={{ marginBottom: 16 }}>
+                <label>{labelSenha}</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={verSenha ? 'text' : 'password'}
