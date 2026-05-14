@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Guarda-Sol na Praia · by SS Condo",
+  title: "Guarda-Sol na Praia",
   description: "Organize os guarda-sóis do seu condomínio. Mais eficiência na portaria, menos confusão entre moradores.",
 };
 
