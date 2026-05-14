@@ -121,6 +121,42 @@ export default function Admin() {
     setProcessando(null)
   }
 
+  function exportarCSV() {
+    const filtrados = condominios.filter(c => {
+      if (!busca.trim()) return true
+      const termo = busca.toLowerCase()
+      return (c.nome?.toLowerCase().includes(termo) || c.sindico_nome?.toLowerCase().includes(termo) || c.sindico_email?.toLowerCase().includes(termo))
+    })
+
+    const cabecalho = ['Condomínio', 'Localização', 'Status', 'Síndico', 'Telefone', 'Email', 'Endereço', 'Cadastrado em', 'Aprovado em']
+    const linhas = filtrados.map(c => [
+      c.nome || '',
+      c.localizacoes?.nome || '',
+      c.status === 'ativo' ? 'Ativo' : c.status === 'aguardando_aprovacao' ? 'Aguardando' : 'Pendente',
+      c.sindico_nome || '',
+      c.sindico_contato || '',
+      c.sindico_email || '',
+      c.endereco || '',
+      c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '',
+      c.aprovado_em ? new Date(c.aprovado_em).toLocaleDateString('pt-BR') : '',
+    ])
+
+    const csv = [cabecalho, ...linhas]
+      .map(linha => linha.map(campo => `"${String(campo).replace(/"/g, '""')}"`).join(';'))
+      .join('\n')
+
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `guardasol-condominios-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   async function excluir(id: string, nome: string) {
     if (!confirm(`Tem certeza que quer EXCLUIR o condomínio "${nome}"? Esta ação não pode ser desfeita.`)) return
     setProcessando(id)
@@ -272,14 +308,17 @@ export default function Admin() {
         {carregando && <div style={{ textAlign: 'center', color: '#555', padding: 40 }}>Carregando...</div>}
 
         {aba === 'todos' && (
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
             <input
               type="text"
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Buscar por condomínio, síndico ou email..."
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, backgroundColor: 'white', boxSizing: 'border-box' }}
+              style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, backgroundColor: 'white', boxSizing: 'border-box' }}
             />
+            <button onClick={exportarCSV} style={{ padding: '10px 18px', backgroundColor: '#00210D', color: 'white', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Exportar CSV
+            </button>
           </div>
         )}
 
