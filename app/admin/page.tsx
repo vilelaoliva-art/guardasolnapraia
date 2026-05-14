@@ -28,6 +28,11 @@ export default function Admin() {
   const [carregando, setCarregando] = useState(false)
   const [processando, setProcessando] = useState<string | null>(null)
 
+  const [editando, setEditando] = useState<Condominio | null>(null)
+  const [formEdit, setFormEdit] = useState({
+    nome: '', endereco: '', sindico_nome: '', sindico_contato: '', sindico_email: ''
+  })
+
   function tentarLogin(e: React.FormEvent) {
     e.preventDefault()
     setErroLogin('')
@@ -70,8 +75,35 @@ export default function Admin() {
     setProcessando(null)
   }
 
-  async function rejeitar(id: string) {
-    if (!confirm('Tem certeza? Esta ação vai APAGAR o cadastro permanentemente.')) return
+  function abrirEdicao(c: Condominio) {
+    setEditando(c)
+    setFormEdit({
+      nome: c.nome || '',
+      endereco: c.endereco || '',
+      sindico_nome: c.sindico_nome || '',
+      sindico_contato: c.sindico_contato || '',
+      sindico_email: c.sindico_email || '',
+    })
+  }
+
+  async function salvarEdicao() {
+    if (!editando) return
+    setProcessando(editando.id)
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .update(formEdit)
+      .eq('id', editando.id)
+    if (error) {
+      alert('Erro ao salvar: ' + error.message)
+    } else {
+      setEditando(null)
+      await carregar()
+    }
+    setProcessando(null)
+  }
+
+  async function excluir(id: string, nome: string) {
+    if (!confirm(`Tem certeza que quer EXCLUIR o condomínio "${nome}"? Esta ação não pode ser desfeita.`)) return
     setProcessando(id)
     const { error } = await supabase
       .from('condominios_guardasol')
@@ -124,6 +156,59 @@ export default function Admin() {
     )
   }
 
+  // MODAL DE EDIÇÃO
+  if (editando) {
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: '#FAF6EE' }}>
+        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
+          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>EDITAR CONDOMÍNIO</div>
+        </header>
+
+        <section style={{ maxWidth: 600, margin: '0 auto', padding: '32px 24px' }}>
+          <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer', marginBottom: 20, padding: 0 }}>← Voltar</button>
+
+          <div style={{ backgroundColor: 'white', padding: 24, borderRadius: 12 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 20 }}>{editando.nome}</h2>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Nome do condomínio</label>
+              <input value={formEdit.nome} onChange={e => setFormEdit({ ...formEdit, nome: e.target.value })} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Endereço</label>
+              <input value={formEdit.endereco} onChange={e => setFormEdit({ ...formEdit, endereco: e.target.value })} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Nome do síndico</label>
+              <input value={formEdit.sindico_nome} onChange={e => setFormEdit({ ...formEdit, sindico_nome: e.target.value })} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Telefone</label>
+              <input value={formEdit.sindico_contato} onChange={e => setFormEdit({ ...formEdit, sindico_contato: e.target.value })} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Email</label>
+              <input type="email" value={formEdit.sindico_email} onChange={e => setFormEdit({ ...formEdit, sindico_email: e.target.value })} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={salvarEdicao} disabled={processando === editando.id} style={{ flex: 1, backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}>
+                {processando === editando.id ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button onClick={() => setEditando(null)} style={{ flex: 1, backgroundColor: 'transparent', color: '#00210D', fontWeight: 600, padding: '12px', borderRadius: 999, border: '1px solid #00210D', cursor: 'pointer', fontSize: 14 }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   // PAINEL
   return (
     <main style={{ minHeight: '100vh', backgroundColor: '#FAF6EE' }}>
@@ -138,7 +223,6 @@ export default function Admin() {
       </header>
 
       <section style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>
-        {/* Abas */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid #E8E4DC' }}>
           <button onClick={() => setAba('pendentes')} style={{ background: 'none', border: 'none', padding: '12px 20px', cursor: 'pointer', fontSize: 14, fontWeight: aba === 'pendentes' ? 700 : 500, color: aba === 'pendentes' ? '#00210D' : '#888', borderBottom: aba === 'pendentes' ? '2px solid #00210D' : '2px solid transparent', marginBottom: -1 }}>
             Aguardando aprovação
@@ -188,18 +272,22 @@ export default function Admin() {
                 </div>
               </div>
 
-              {c.status === 'aguardando_aprovacao' && (
-                <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {c.status === 'aguardando_aprovacao' && (
                   <button onClick={() => aprovar(c.id)} disabled={processando === c.id}
                     style={{ backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13 }}>
-                    {processando === c.id ? '...' : 'Aprovar'}
+                    Aprovar
                   </button>
-                  <button onClick={() => rejeitar(c.id)} disabled={processando === c.id}
-                    style={{ backgroundColor: 'transparent', color: '#B91C1C', fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid #FCA5A5', cursor: 'pointer', fontSize: 13 }}>
-                    Rejeitar
-                  </button>
-                </div>
-              )}
+                )}
+                <button onClick={() => abrirEdicao(c)} disabled={processando === c.id}
+                  style={{ backgroundColor: 'transparent', color: '#00210D', fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid #00210D', cursor: 'pointer', fontSize: 13 }}>
+                  Editar
+                </button>
+                <button onClick={() => excluir(c.id, c.nome)} disabled={processando === c.id}
+                  style={{ backgroundColor: 'transparent', color: '#B91C1C', fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid #FCA5A5', cursor: 'pointer', fontSize: 13 }}>
+                  Excluir
+                </button>
+              </div>
             </div>
           </div>
         ))}
