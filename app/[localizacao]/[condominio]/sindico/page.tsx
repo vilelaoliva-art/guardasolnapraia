@@ -306,6 +306,10 @@ export default function PainelSindico() {
           </div>
         </div>
 
+        {/* Botão Relatório */}
+        <div style={{ marginBottom: 16, marginTop: 4 }}>
+          <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/relatorio`} style={{ display: "block", textAlign: "center", backgroundColor: "transparent", color: "#00210D", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Ver relatório do mês</a>
+        </div>
         {/* Links */}
         <div className="card-form">
           <h2>Links de acesso</h2>
