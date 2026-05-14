@@ -29,6 +29,11 @@ export default function Admin() {
   const [processando, setProcessando] = useState<string | null>(null)
   const [estatisticas, setEstatisticas] = useState({ total: 0, ativos: 0, aguardando: 0, pendentes: 0 })
   const [busca, setBusca] = useState('')
+  const [criando, setCriando] = useState(false)
+  const [localizacoesLista, setLocalizacoesLista] = useState<{ id: string; nome: string }[]>([])
+  const [novoCondo, setNovoCondo] = useState({ nome: '', localizacao_id: '', nova_localizacao: '' })
+  const [usandoNovaLoc, setUsandoNovaLoc] = useState(false)
+  const [salvandoNovo, setSalvandoNovo] = useState(false)
 
   const [editando, setEditando] = useState<Condominio | null>(null)
   const [formEdit, setFormEdit] = useState({
@@ -81,6 +86,14 @@ export default function Admin() {
     }
     carregarEstatisticas()
   }, [autenticado, condominios])
+  useEffect(() => {
+    async function carregarLocalizacoes() {
+      if (!autenticado) return
+      const { data } = await supabase.from('localizacoes').select('id, nome').order('nome')
+      setLocalizacoesLista(data || [])
+    }
+    carregarLocalizacoes()
+  }, [autenticado])
 
   async function aprovar(id: string) {
     if (!confirm('Aprovar este condomínio?')) return
@@ -157,6 +170,69 @@ export default function Admin() {
     URL.revokeObjectURL(url)
   }
 
+  function gerarSlug(nome: string) {
+    return nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  }
+
+  async function criarCondominio(e: React.FormEvent) {
+    e.preventDefault()
+    if (!novoCondo.nome.trim()) { alert('Informe o nome do condomínio.'); return }
+
+    setSalvandoNovo(true)
+    let locId = novoCondo.localizacao_id
+
+    if (usandoNovaLoc) {
+      if (!novoCondo.nova_localizacao.trim()) {
+        alert('Informe o nome da localização.')
+        setSalvandoNovo(false)
+        return
+      }
+      const locSlug = gerarSlug(novoCondo.nova_localizacao)
+      const { data: locExistente } = await supabase
+        .from('localizacoes')
+        .select('id')
+        .eq('slug', locSlug)
+        .maybeSingle()
+      if (locExistente) {
+        locId = locExistente.id
+      } else {
+        const { data: nova, error: errLoc } = await supabase
+          .from('localizacoes')
+          .insert({ nome: novoCondo.nova_localizacao.trim(), slug: locSlug, cidade: novoCondo.nova_localizacao.trim(), estado: 'SP' })
+          .select()
+          .single()
+        if (errLoc || !nova) {
+          alert('Erro ao criar localização: ' + (errLoc?.message || ''))
+          setSalvandoNovo(false)
+          return
+        }
+        locId = nova.id
+        setLocalizacoesLista([...localizacoesLista, { id: nova.id, nome: nova.nome }])
+      }
+    }
+
+    if (!locId) {
+      alert('Selecione uma localização.')
+      setSalvandoNovo(false)
+      return
+    }
+
+    const condoSlug = gerarSlug(novoCondo.nome)
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .insert({ nome: novoCondo.nome.trim(), slug: condoSlug, localizacao_id: locId, status: 'pendente' })
+
+    if (error) {
+      alert('Erro ao criar: ' + error.message)
+    } else {
+      setCriando(false)
+      setNovoCondo({ nome: '', localizacao_id: '', nova_localizacao: '' })
+      setUsandoNovaLoc(false)
+      await carregar()
+    }
+    setSalvandoNovo(false)
+  }
+
   async function alterarStatus(id: string, novoStatus: string) {
     setProcessando(id)
     const update: { status: string; aprovado_em?: string | null } = { status: novoStatus }
@@ -225,6 +301,83 @@ export default function Admin() {
     )
   }
 
+  // MODAL DE CRIAÇÃO
+  if (criando) {
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: '#FAF6EE' }}>
+        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
+          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>NOVO CONDOMÍNIO</div>
+        </header>
+
+        <section style={{ maxWidth: 600, margin: '0 auto', padding: '32px 24px' }}>
+          <button onClick={() => { setCriando(false); setNovoCondo({ nome: '', localizacao_id: '', nova_localizacao: '' }); setUsandoNovaLoc(false) }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer', marginBottom: 20, padding: 0 }}>← Voltar</button>
+
+          <form onSubmit={criarCondominio}>
+            <div style={{ backgroundColor: 'white', padding: 24, borderRadius: 12 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 20 }}>Cadastrar novo condomínio</h2>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Localização *</label>
+                <select
+                  value={usandoNovaLoc ? '__nova__' : novoCondo.localizacao_id}
+                  onChange={e => {
+                    if (e.target.value === '__nova__') {
+                      setUsandoNovaLoc(true)
+                      setNovoCondo({ ...novoCondo, localizacao_id: '' })
+                    } else {
+                      setUsandoNovaLoc(false)
+                      setNovoCondo({ ...novoCondo, localizacao_id: e.target.value })
+                    }
+                  }}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, backgroundColor: 'white', boxSizing: 'border-box' }}
+                >
+                  <option value="">Selecione...</option>
+                  {localizacoesLista.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                  <option value="__nova__">+ Nova localização</option>
+                </select>
+              </div>
+
+              {usandoNovaLoc && (
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Nome da nova localização *</label>
+                  <input
+                    value={novoCondo.nova_localizacao}
+                    onChange={e => setNovoCondo({ ...novoCondo, nova_localizacao: e.target.value })}
+                    placeholder="Ex: Maresias, Guarujá..."
+                    required
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }}
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 6 }}>Nome do condomínio *</label>
+                <input
+                  value={novoCondo.nome}
+                  onChange={e => setNovoCondo({ ...novoCondo, nome: e.target.value })}
+                  placeholder="Ex: Edifício Beira Mar"
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 14, boxSizing: 'border-box' }}
+                />
+                <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>O condomínio será criado com status &quot;pendente&quot;. O síndico ativa depois pelo cadastro.</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit" disabled={salvandoNovo} style={{ flex: 1, backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}>
+                  {salvandoNovo ? 'Salvando...' : 'Cadastrar'}
+                </button>
+                <button type="button" onClick={() => { setCriando(false); setNovoCondo({ nome: '', localizacao_id: '', nova_localizacao: '' }); setUsandoNovaLoc(false) }} style={{ flex: 1, backgroundColor: 'transparent', color: '#00210D', fontWeight: 600, padding: '12px', borderRadius: 999, border: '1px solid #00210D', cursor: 'pointer', fontSize: 14 }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </form>
+        </section>
+      </main>
+    )
+  }
+  
   // MODAL DE EDIÇÃO
   if (editando) {
     return (
@@ -286,6 +439,9 @@ export default function Admin() {
           <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>PAINEL ADMIN</div>
           <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>Guarda-Sol na Praia</div>
         </div>
+        <button onClick={() => setCriando(true)} style={{ backgroundColor: 'white', color: '#00210D', border: 'none', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginRight: 8 }}>
+          + Novo condomínio
+        </button>
         <button onClick={() => setAutenticado(false)} style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 999, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           Sair
         </button>
@@ -395,7 +551,7 @@ export default function Admin() {
                   <option value="aguardando_aprovacao">Aguardando</option>
                   <option value="ativo">Ativo</option>
                 </select>
-                
+
                 <button onClick={() => abrirEdicao(c)} disabled={processando === c.id}
                   style={{ backgroundColor: 'transparent', color: '#00210D', fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid #00210D', cursor: 'pointer', fontSize: 13 }}>
                   Editar
