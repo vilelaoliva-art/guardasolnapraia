@@ -309,6 +309,7 @@ export default function PainelSindico() {
         {/* Botão Relatório */}
         <div style={{ marginBottom: 16, marginTop: 4 }}>
           <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/relatorio`} style={{ display: "block", textAlign: "center", backgroundColor: "transparent", color: "#00210D", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Ver relatório do mês</a>
+        <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/configuracoes`} style={{ display: "block", textAlign: "center", backgroundColor: "transparent", color: "#00210D", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none", marginTop: 8 }}>Configurações</a>
         </div>
         {/* Links */}
         <div className="card-form">
@@ -342,73 +343,6 @@ export default function PainelSindico() {
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Configurações */}
-        <div className="card-form">
-          <h2>Configurações</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span style={{ color: '#555' }}>Horário limite</span>
-              <span style={{ color: '#00210D', fontWeight: 500 }}>{condo?.horario_limite?.slice(0, 5)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span style={{ color: '#555' }}>Síndico responsável</span>
-              <span style={{ color: '#00210D', fontWeight: 500 }}>{condo?.sindico_nome}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span style={{ color: '#555' }}>Contato</span>
-              <span style={{ color: '#00210D', fontWeight: 500 }}>{condo?.sindico_contato}</span>
-            </div>
-            {condo?.regras && (
-              <div style={{ fontSize: 14, marginTop: 6 }}>
-                <div style={{ color: '#555', marginBottom: 4 }}>Regras</div>
-                <div style={{ color: '#00210D' }}>{condo.regras}</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Unidades */}
-        <div className="card-form">
-          <h2>Unidades cadastradas</h2>
-
-          <form onSubmit={adicionarUnidade} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <input
-              value={novaUnidade}
-              onChange={e => setNovaUnidade(e.target.value)}
-              placeholder="Ex: 101"
-              style={{ flex: 1 }}
-              disabled={loadingUnidade}
-            />
-            <button
-              type="submit"
-              style={{ padding: '10px 16px', backgroundColor: '#00210D', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-              disabled={loadingUnidade || !novaUnidade.trim()}
-            >
-              {loadingUnidade ? '...' : '+ Adicionar'}
-            </button>
-          </form>
-
-          {unidades.length === 0 ? (
-            <div style={{ fontSize: 14, color: '#888', textAlign: 'center', padding: '16px 0' }}>
-              Nenhuma unidade cadastrada.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {unidades.map((u) => (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #E8E4DC' }}>
-                  <span style={{ fontSize: 15, color: '#00210D' }}>Apto {u.numero}</span>
-                  <button
-                    onClick={() => removerUnidade(u.id, u.numero)}
-                    style={{ backgroundColor: 'transparent', color: '#B91C1C', border: '1px solid #FCA5A5', borderRadius: 6, padding: '4px 12px', fontSize: 12, cursor: 'pointer' }}
-                  >
-                    Remover
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Reservas hoje */}
