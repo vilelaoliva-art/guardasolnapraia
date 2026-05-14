@@ -10,7 +10,7 @@ export default function Home() {
             <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
             <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
           </div>
-          <a href="/cadastro" style={{ backgroundColor: 'white', color: '#00210D', padding: '10px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>Cadastrar grátis</a>
+          <a href="/login" style={{ backgroundColor: 'white', color: '#00210D', padding: '10px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>Fazer login</a>
         </div>
       </header>
 

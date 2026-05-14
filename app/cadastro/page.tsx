@@ -1,297 +1,417 @@
 'use client'
 
-import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../lib/supabase'
 
-export default function Cadastro() {
+type Localizacao = { id: string; nome: string; slug: string }
+type Condominio = { id: string; nome: string; slug: string; status: string }
+
+const WHATSAPP_SUPORTE = '5513996655551'
+
+export default function Login() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [erro, setErro] = useState('')
-  const [unidadesTexto, setUnidadesTexto] = useState('')
-  const [verSenhaSindico, setVerSenhaSindico] = useState(false)
-  const [verSenhaPortaria, setVerSenhaPortaria] = useState(false)
+
+  const [localizacoes, setLocalizacoes] = useState<Localizacao[]>([])
+  const [localizacaoId, setLocalizacaoId] = useState('')
+  const [outraLocalizacao, setOutraLocalizacao] = useState(false)
+  const [novaLocalizacaoNome, setNovaLocalizacaoNome] = useState('')
+
+  const [condominios, setCondominios] = useState<Condominio[]>([])
+  const [condominioSelecionado, setCondominioSelecionado] = useState<Condominio | null>(null)
+  const [outroCondominio, setOutroCondominio] = useState(false)
+  const [novoCondominioNome, setNovoCondominioNome] = useState('')
+
+  const [etapa, setEtapa] = useState<'selecao' | 'login' | 'ativacao' | 'cadastro_novo' | 'sucesso'>('selecao')
+  const [mensagemSucesso, setMensagemSucesso] = useState('')
+
+  const [senhaLogin, setSenhaLogin] = useState('')
+  const [verSenhaLogin, setVerSenhaLogin] = useState(false)
+
   const [form, setForm] = useState({
-    nome: '',
-    endereco: '',
-    localizacao_nome: '',
-    horario_limite: '05:00',
-    regras: '',
     sindico_nome: '',
     sindico_contato: '',
     sindico_email: '',
+    endereco: '',
     senha_sindico: '',
     senha_portaria: '',
   })
+  const [verSenhaSindico, setVerSenhaSindico] = useState(false)
+  const [verSenhaPortaria, setVerSenhaPortaria] = useState(false)
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  const [erro, setErro] = useState('')
+  const [carregando, setCarregando] = useState(false)
+
+  useEffect(() => {
+    async function carregar() {
+      const { data } = await supabase.from('localizacoes').select('id, nome, slug').order('nome')
+      setLocalizacoes((data as Localizacao[]) || [])
+    }
+    carregar()
+  }, [])
+
+  useEffect(() => {
+    async function carregar() {
+      if (!localizacaoId) { setCondominios([]); return }
+      const { data } = await supabase
+        .from('condominios_guardasol')
+        .select('id, nome, slug, status')
+        .eq('localizacao_id', localizacaoId)
+        .order('nome')
+      setCondominios((data as Condominio[]) || [])
+    }
+    carregar()
+  }, [localizacaoId])
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
   function gerarSlug(nome: string) {
-    return nome
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '')
+    return nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function continuar() {
     setErro('')
-    setLoading(true)
 
-    if (!form.localizacao_nome.trim()) {
-      setErro('Informe a localização.')
-      setLoading(false)
-      return
-    }
-
-    const slug = gerarSlug(form.nome)
-    const localizacaoSlug = gerarSlug(form.localizacao_nome)
-
-    const unidades = unidadesTexto
-      .split(/[\n,;]+/)
-      .map(u => u.trim())
-      .filter(u => u.length > 0)
-
-    if (unidades.length === 0) {
-      setErro('Informe pelo menos uma unidade.')
-      setLoading(false)
-      return
-    }
-
-    let localizacaoId: string
-
-    const { data: localizacaoExistente } = await supabase
-      .from('localizacoes')
-      .select('id')
-      .eq('slug', localizacaoSlug)
-      .maybeSingle()
-
-    if (localizacaoExistente) {
-      localizacaoId = localizacaoExistente.id
-    } else {
-      const { data: novaLocalizacao, error: erroLoc } = await supabase
-        .from('localizacoes')
-        .insert({
-          nome: form.localizacao_nome.trim(),
-          slug: localizacaoSlug,
-          cidade: form.localizacao_nome.trim(),
-          estado: 'SP',
-        })
-        .select()
-        .single()
-
-      if (erroLoc || !novaLocalizacao) {
-        setErro('Erro ao salvar localização. ' + (erroLoc?.message || ''))
-        setLoading(false)
+    if (outraLocalizacao || outroCondominio) {
+      if (outraLocalizacao && !novaLocalizacaoNome.trim()) {
+        setErro('Informe o nome da localização.')
         return
       }
-      localizacaoId = novaLocalizacao.id
+      if (outroCondominio && !novoCondominioNome.trim()) {
+        setErro('Informe o nome do condomínio.')
+        return
+      }
+      setEtapa('cadastro_novo')
+      return
     }
 
-    const { localizacao_nome, ...formSemLocalizacao } = form
+    if (!localizacaoId || !condominioSelecionado) {
+      setErro('Selecione a localização e o condomínio.')
+      return
+    }
 
-    const { data: condo, error: erroInsert } = await supabase
+    if (condominioSelecionado.status === 'ativo') {
+      setEtapa('login')
+    } else if (condominioSelecionado.status === 'aguardando_aprovacao') {
+      setErro('Este condomínio já foi cadastrado e está aguardando aprovação.')
+    } else {
+      setEtapa('ativacao')
+    }
+  }
+
+  async function fazerLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    if (!condominioSelecionado) return
+
+    const { data } = await supabase
       .from('condominios_guardasol')
-      .insert({
-        ...formSemLocalizacao,
-        slug,
-        localizacao_id: localizacaoId,
-      })
-      .select()
+      .select('senha_sindico, slug, localizacoes(slug)')
+      .eq('id', condominioSelecionado.id)
       .single()
 
-    if (erroInsert || !condo) {
-      setErro(erroInsert?.message || 'Erro ao cadastrar. Tente novamente.')
-      setLoading(false)
+    if (!data || data.senha_sindico !== senhaLogin) {
+      setErro('Senha incorreta.')
       return
     }
 
-    const unidadesParaInserir = unidades.map(numero => ({
-      condominio_id: condo.id,
-      numero,
-    }))
+    const locSlug = (data.localizacoes as unknown as { slug: string } | null)?.slug
+    router.push(`/${locSlug}/${data.slug}/sindico`)
+  }
 
-    const { error: erroUnidades } = await supabase
-      .from('unidades_guardasol')
-      .insert(unidadesParaInserir)
+  async function ativarCondominio(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    setCarregando(true)
 
-    if (erroUnidades) {
-      setErro('Condomínio cadastrado mas houve erro ao salvar unidades.')
-      setLoading(false)
+    if (!condominioSelecionado) { setCarregando(false); return }
+
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .update({
+        ...form,
+        status: 'ativo',
+        aprovado_em: new Date().toISOString(),
+      })
+      .eq('id', condominioSelecionado.id)
+
+    if (error) {
+      setErro('Erro ao ativar: ' + error.message)
+      setCarregando(false)
       return
     }
 
-    router.push(`/${localizacaoSlug}/${slug}/sindico`)
+    setMensagemSucesso('Condomínio ativado com sucesso! Você já pode entrar.')
+    setEtapa('sucesso')
+    setCarregando(false)
+  }
+
+  async function cadastrarNovo(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    setCarregando(true)
+
+    let locId = localizacaoId
+
+    if (outraLocalizacao) {
+      const locSlug = gerarSlug(novaLocalizacaoNome)
+      const { data: locExistente } = await supabase
+        .from('localizacoes')
+        .select('id')
+        .eq('slug', locSlug)
+        .maybeSingle()
+
+      if (locExistente) {
+        locId = locExistente.id
+      } else {
+        const { data: novaLoc, error: errLoc } = await supabase
+          .from('localizacoes')
+          .insert({ nome: novaLocalizacaoNome.trim(), slug: locSlug, cidade: novaLocalizacaoNome.trim(), estado: 'SP' })
+          .select()
+          .single()
+        if (errLoc || !novaLoc) {
+          setErro('Erro ao criar localização: ' + (errLoc?.message || ''))
+          setCarregando(false)
+          return
+        }
+        locId = novaLoc.id
+      }
+    }
+
+    const condoSlug = gerarSlug(novoCondominioNome)
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .insert({
+        ...form,
+        nome: novoCondominioNome.trim(),
+        slug: condoSlug,
+        localizacao_id: locId,
+        status: 'aguardando_aprovacao',
+      })
+
+    if (error) {
+      setErro('Erro ao cadastrar: ' + error.message)
+      setCarregando(false)
+      return
+    }
+
+    setMensagemSucesso('Cadastro enviado! Vamos analisar e em breve liberamos o acesso.')
+    setEtapa('sucesso')
+    setCarregando(false)
+  }
+
+  function Header() {
+    return (
+      <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
+        <a href="/" style={{ textDecoration: 'none' }}>
+          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
+          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
+        </a>
+      </header>
+    )
+  }
+
+  if (etapa === 'sucesso') {
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <section style={{ flex: 1, padding: '40px 24px', maxWidth: 480, margin: '0 auto', width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🌴</div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 12 }}>Tudo certo!</h1>
+          <p style={{ fontSize: 15, color: '#555', marginBottom: 28, lineHeight: 1.6 }}>{mensagemSucesso}</p>
+          <a href="/" style={{ display: 'inline-block', backgroundColor: '#00210D', color: 'white', padding: '12px 32px', borderRadius: 999, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>Voltar para o início</a>
+        </section>
+      </main>
+    )
+  }
+
+  if (etapa === 'login') {
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <section style={{ flex: 1, padding: '40px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
+          <button onClick={() => setEtapa('selecao')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer', marginBottom: 20, padding: 0 }}>← Voltar</button>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>Entrar</h1>
+          <p style={{ fontSize: 14, color: '#555', marginBottom: 24 }}>{condominioSelecionado?.nome}</p>
+
+          <form onSubmit={fazerLogin}>
+            <div className="card-form">
+              <div style={{ marginBottom: 16 }}>
+                <label>Senha do síndico *</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={verSenhaLogin ? 'text' : 'password'}
+                    value={senhaLogin}
+                    onChange={e => setSenhaLogin(e.target.value)}
+                    placeholder="Digite sua senha"
+                    required
+                    autoFocus
+                    style={{ paddingRight: 80 }}
+                  />
+                  <button type="button" onClick={() => setVerSenhaLogin(!verSenhaLogin)}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>
+                    {verSenhaLogin ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                </div>
+              </div>
+
+              {erro && <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#B91C1C' }}>{erro}</div>}
+
+              <button type="submit" style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}>Entrar</button>
+            </div>
+
+            <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13 }}>
+              <a href={`https://wa.me/${WHATSAPP_SUPORTE}?text=Ola! Esqueci minha senha do Guarda-Sol na Praia.`} target="_blank" rel="noopener noreferrer" style={{ color: '#00210D', textDecoration: 'underline' }}>Esqueci minha senha</a>
+            </p>
+          </form>
+        </section>
+      </main>
+    )
+  }
+
+  if (etapa === 'ativacao' || etapa === 'cadastro_novo') {
+    const titulo = etapa === 'ativacao' ? 'Ativar condomínio' : 'Cadastrar novo condomínio'
+    const nomeExibicao = etapa === 'ativacao' ? condominioSelecionado?.nome : novoCondominioNome
+    const handler = etapa === 'ativacao' ? ativarCondominio : cadastrarNovo
+
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <section style={{ flex: 1, padding: '40px 24px', maxWidth: 600, margin: '0 auto', width: '100%' }}>
+          <button onClick={() => setEtapa('selecao')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 13, cursor: 'pointer', marginBottom: 20, padding: 0 }}>← Voltar</button>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>{titulo}</h1>
+          <p style={{ fontSize: 14, color: '#555', marginBottom: 24 }}>{nomeExibicao}</p>
+
+          <form onSubmit={handler}>
+            <div className="card-form">
+              <h2>Dados do síndico</h2>
+              <div style={{ marginBottom: 16 }}>
+                <label>Nome do síndico *</label>
+                <input name="sindico_nome" value={form.sindico_nome} onChange={handleChange} required />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label>Telefone *</label>
+                <input name="sindico_contato" value={form.sindico_contato} onChange={handleChange} placeholder="(11) 99999-9999" required />
+              </div>
+              <div>
+                <label>Email *</label>
+                <input name="sindico_email" type="email" value={form.sindico_email} onChange={handleChange} placeholder="seu@email.com" required />
+              </div>
+            </div>
+
+            <div className="card-form">
+              <h2>Endereço</h2>
+              <div>
+                <label>Endereço do condomínio *</label>
+                <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Rua, número" required />
+              </div>
+            </div>
+
+            <div className="card-form" style={{ marginBottom: 32 }}>
+              <h2 style={{ marginBottom: 8 }}>Senhas de acesso</h2>
+              <p style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>Guarde essas senhas. Você precisará delas para acessar o painel.</p>
+
+              <div style={{ marginBottom: 16 }}>
+                <label>Senha do síndico *</label>
+                <div style={{ position: 'relative' }}>
+                  <input name="senha_sindico" type={verSenhaSindico ? 'text' : 'password'} value={form.senha_sindico} onChange={handleChange} required style={{ paddingRight: 80 }} />
+                  <button type="button" onClick={() => setVerSenhaSindico(!verSenhaSindico)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>{verSenhaSindico ? 'Ocultar' : 'Mostrar'}</button>
+                </div>
+              </div>
+
+              <div>
+                <label>Senha da portaria *</label>
+                <div style={{ position: 'relative' }}>
+                  <input name="senha_portaria" type={verSenhaPortaria ? 'text' : 'password'} value={form.senha_portaria} onChange={handleChange} required style={{ paddingRight: 80 }} />
+                  <button type="button" onClick={() => setVerSenhaPortaria(!verSenhaPortaria)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>{verSenhaPortaria ? 'Ocultar' : 'Mostrar'}</button>
+                </div>
+              </div>
+            </div>
+
+            {erro && <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#B91C1C' }}>{erro}</div>}
+
+            <button type="submit" disabled={carregando} style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '14px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 15 }}>
+              {carregando ? 'Enviando...' : (etapa === 'ativacao' ? 'Ativar condomínio' : 'Solicitar cadastro')}
+            </button>
+          </form>
+        </section>
+      </main>
+    )
   }
 
   return (
     <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+      <Header />
+      <section style={{ flex: 1, padding: '40px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
+        <a href="/" style={{ color: '#555', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 20 }}>← Voltar</a>
+        <h1 style={{ fontSize: 26, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>Acesso do síndico</h1>
+        <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Selecione a localização e o condomínio para continuar.</p>
 
-      {/* HEADER */}
-      <header style={{ backgroundColor: '#00210D', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <a href="/" style={{ textDecoration: 'none' }}>
-          <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>
-            GUARDA-SOL NA PRAIA
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>
-            by SS Condo
-          </div>
-        </a>
-      </header>
-
-      {/* CONTEÚDO */}
-      <section style={{ flex: 1, padding: '40px 24px', maxWidth: 600, margin: '0 auto', width: '100%' }}>
-
-        <a href="/" style={{ color: '#555', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 20 }}>
-          ← Voltar
-        </a>
-
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>
-          Cadastrar condomínio
-        </h1>
-        <p style={{ fontSize: 14, color: '#555', marginBottom: 32, lineHeight: 1.6 }}>
-          Preencha os dados abaixo para criar o link do seu condomínio.
-        </p>
-
-        <form onSubmit={handleSubmit}>
-
-          <div className="card-form">
-            <h2>Dados do condomínio</h2>
-
-            <div style={{ marginBottom: 16 }}>
-              <label>Nome do condomínio *</label>
-              <input name="nome" value={form.nome} onChange={handleChange} placeholder="Ex: Edifício Beira Mar" required />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label>Endereço *</label>
-              <input name="endereco" value={form.endereco} onChange={handleChange} placeholder="Rua, número" required />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label>Localização *</label>
-              <input
-                name="localizacao_nome"
-                value={form.localizacao_nome}
-                onChange={handleChange}
-                placeholder="Ex: Riviera de São Lourenço, Maresias, Guarujá..."
-                required
-              />
-              <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
-                Bairro, praia ou região onde fica o condomínio
-              </span>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label>Horário limite para solicitação *</label>
-              <input name="horario_limite" type="time" value={form.horario_limite} onChange={handleChange} required />
-              <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
-                Proprietário deve solicitar antes desse horário no mesmo dia
-              </span>
-            </div>
-
-            <div>
-              <label>Regras adicionais (opcional)</label>
-              <textarea name="regras" value={form.regras} onChange={handleChange} placeholder="Ex: Guarda-sol entregue até as 8h na faixa de areia em frente ao prédio." rows={3} style={{ resize: 'vertical' }} />
-            </div>
+        <div className="card-form">
+          <div style={{ marginBottom: 16 }}>
+            <label>Localização *</label>
+            <select value={outraLocalizacao ? '__outra__' : localizacaoId} onChange={e => {
+              if (e.target.value === '__outra__') {
+                setOutraLocalizacao(true)
+                setLocalizacaoId('')
+                setCondominioSelecionado(null)
+              } else {
+                setOutraLocalizacao(false)
+                setLocalizacaoId(e.target.value)
+                setCondominioSelecionado(null)
+                setOutroCondominio(false)
+              }
+            }} required>
+              <option value="">Selecione...</option>
+              {localizacoes.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+              <option value="__outra__">Outra (não está na lista)</option>
+            </select>
           </div>
 
-          <div className="card-form">
-            <h2>Unidades</h2>
-            <div>
-              <label>Números das unidades *</label>
-              <textarea
-                value={unidadesTexto}
-                onChange={e => setUnidadesTexto(e.target.value)}
-                placeholder={'101\n102\n201\n202\n301'}
-                rows={6}
-                style={{ resize: 'vertical', fontFamily: 'monospace' }}
-              />
-              <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
-                Digite um número por linha ou separe por vírgula
-              </span>
-            </div>
-          </div>
-
-          <div className="card-form">
-            <h2>Síndico responsável</h2>
-
+          {outraLocalizacao && (
             <div style={{ marginBottom: 16 }}>
-              <label>Nome do síndico *</label>
-              <input name="sindico_nome" value={form.sindico_nome} onChange={handleChange} placeholder="Nome completo" required />
-            </div>
-
-            <div>
-              <label>Contato (telefone ou email) *</label>
-              <input name="sindico_contato" value={form.sindico_contato} onChange={handleChange} placeholder="(11) 99999-9999" required /><div style={{ marginTop: 16 }}><label>Email do síndico *</label><input name="sindico_email" type="email" value={form.sindico_email} onChange={handleChange} placeholder="seu@email.com" required /></div>
-            </div>
-          </div>
-
-          <div className="card-form" style={{ marginBottom: 32 }}>
-            <h2 style={{ marginBottom: 8 }}>Senhas de acesso</h2>
-            <p style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>
-              Guarde essas senhas com cuidado. Você precisará delas para acessar o painel.
-            </p>
-
-            <div style={{ marginBottom: 16 }}>
-              <label>Senha do síndico *</label>
-              <div style={{ position: "relative" }}><input name="senha_sindico" type={verSenhaSindico ? "text" : "password"} value={form.senha_sindico} onChange={handleChange} placeholder="Senha para o painel do síndico" required style={{ paddingRight: 44 }} /><button type="button" onClick={() => setVerSenhaSindico(!verSenhaSindico)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: "#00210D", fontWeight: 600, padding: "4px 8px", textDecoration: "underline" }}>{verSenhaSindico ? "Ocultar" : "Mostrar"}</button></div>
-            </div>
-
-            <div>
-              <label>Senha da portaria *</label>
-              <div style={{ position: "relative" }}><input name="senha_portaria" type={verSenhaPortaria ? "text" : "password"} value={form.senha_portaria} onChange={handleChange} placeholder="Senha para a portaria" required style={{ paddingRight: 44 }} /><button type="button" onClick={() => setVerSenhaPortaria(!verSenhaPortaria)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: "#00210D", fontWeight: 600, padding: "4px 8px", textDecoration: "underline" }}>{verSenhaPortaria ? "Ocultar" : "Mostrar"}</button></div>
-            </div>
-          </div>
-
-          {erro && (
-            <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#B91C1C' }}>
-              {erro}
+              <label>Nome da localização *</label>
+              <input value={novaLocalizacaoNome} onChange={e => setNovaLocalizacaoNome(e.target.value)} placeholder="Ex: Maresias, Guarujá..." required />
             </div>
           )}
 
-          <button
-            type="submit"
-            style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '14px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 15 }}
-            disabled={loading}
-          >
-            {loading ? 'Cadastrando...' : 'Cadastrar condomínio grátis'}
-          </button>
+          {(localizacaoId || outraLocalizacao) && (
+            <div style={{ marginBottom: 16 }}>
+              <label>Condomínio *</label>
+              {!outraLocalizacao && (
+                <select value={outroCondominio ? '__outro__' : (condominioSelecionado?.id || '')} onChange={e => {
+                  if (e.target.value === '__outro__') {
+                    setOutroCondominio(true)
+                    setCondominioSelecionado(null)
+                  } else {
+                    setOutroCondominio(false)
+                    const cond = condominios.find(c => c.id === e.target.value) || null
+                    setCondominioSelecionado(cond)
+                  }
+                }} required>
+                  <option value="">Selecione...</option>
+                  {condominios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  <option value="__outro__">Outro (não está na lista)</option>
+                </select>
+              )}
 
-          <p style={{ marginTop: 14, fontSize: 13, color: '#555', fontStyle: 'italic', textAlign: 'center' }}>
-            Um serviço gratuito oferecido por{' '}
-            <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ color: '#00210D', fontWeight: 600, textDecoration: 'underline' }}>
-              www.sscondo.com.br
-            </a>
-          </p>
+              {(outroCondominio || outraLocalizacao) && (
+                <input value={novoCondominioNome} onChange={e => setNovoCondominioNome(e.target.value)} placeholder="Nome do condomínio" required style={{ marginTop: outraLocalizacao ? 0 : 8 }} />
+              )}
+            </div>
+          )}
 
-        </form>
-      </section>
+          {erro && <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#B91C1C' }}>{erro}</div>}
 
-      {/* RODAPÉ */}
-      <footer style={{ backgroundColor: '#00210D', padding: '32px 24px', marginTop: 40 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-            Guarda-Sol na Praia · {new Date().getFullYear()}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' }}>
-              powered by
-            </span>
-            <a href="https://www.sscondo.com.br" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-              <img src="/sscondo-logo.jpg" alt="SS Condo" style={{ height: 36, borderRadius: 4 }} />
-              <div style={{ color: '#C0AB60', fontSize: 13, fontWeight: 600 }}>
-                Safe Season
-              </div>
-            </a>
-          </div>
+          <button onClick={continuar} style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}>Continuar</button>
         </div>
-      </footer>
 
+        <p style={{ marginTop: 20, fontSize: 13, color: '#555', textAlign: 'center', fontStyle: 'italic' }}>
+          Primeiro acesso? Selecione seu condomínio para ativá-lo.
+        </p>
+      </section>
     </main>
   )
 }
