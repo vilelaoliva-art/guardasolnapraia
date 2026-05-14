@@ -111,19 +111,22 @@ export default function QRCodePage() {
             </div>
           </div>
 
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 10 }}>
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: '#00210D', marginBottom: 14, letterSpacing: -0.5 }}>
             Reserve seu kit de praia
           </h2>
           <p style={{ fontSize: 14, color: '#555', lineHeight: 1.6, marginBottom: 24, maxWidth: 400, margin: '0 auto 24px' }}>
             Aponte a câmera do celular para o código acima e marque os dias em que você quer guarda-sol na praia.
           </p>
+          <p style={{ fontSize: 14, color: '#00210D', fontWeight: 600, marginBottom: 24, maxWidth: 400, margin: '0 auto 24px' }}>
+            Mais organização e eficiência no condomínio!
+          </p>
 
-          <div style={{ borderTop: '1px solid #E8E4DC', paddingTop: 16, marginTop: 24 }}>
+          <div style={{ borderTop: '1px solid #E8E4DC', paddingTop: 16, marginTop: 24 }}><p style={{ fontSize: 13, color: '#00210D', fontWeight: 600, marginBottom: 8 }}>Saiba mais: www.guardasolnapraia.com.br</p>
             <p style={{ fontSize: 11, color: '#888', fontStyle: 'italic', wordBreak: 'break-all' }}>
               {urlMorador}
             </p>
             <p style={{ fontSize: 11, color: '#888', marginTop: 8 }}>
-              Serviço gratuito oferecido por SS Condo · Safe Season
+              Oferecido por SS Condo · Safe Season
             </p>
           </div>
         </div>
