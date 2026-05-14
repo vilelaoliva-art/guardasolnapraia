@@ -279,7 +279,7 @@ export default function PainelSindico() {
           <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
           <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
         </a>
-        <button onClick={() => { if (condo) sessionStorage.removeItem('sindico_auth_' + condo.id); setAutenticado(false); }} style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 999, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Sair</button>
+        <button onClick={() => { if (condo) sessionStorage.removeItem('sindico_auth_' + condo.id); window.location.href = '/'; }} style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 999, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Sair</button>
       </header>
 
       <section style={{ flex: 1, padding: '40px 24px', maxWidth: 720, margin: '0 auto', width: '100%' }}>
