@@ -157,6 +157,20 @@ export default function Admin() {
     URL.revokeObjectURL(url)
   }
 
+  async function alterarStatus(id: string, novoStatus: string) {
+    setProcessando(id)
+    const update: { status: string; aprovado_em?: string | null } = { status: novoStatus }
+    if (novoStatus === 'ativo') update.aprovado_em = new Date().toISOString()
+    if (novoStatus === 'pendente') update.aprovado_em = null
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .update(update)
+      .eq('id', id)
+    if (error) alert('Erro: ' + error.message)
+    await carregar()
+    setProcessando(null)
+  }
+
   async function excluir(id: string, nome: string) {
     if (!confirm(`Tem certeza que quer EXCLUIR o condomínio "${nome}"? Esta ação não pode ser desfeita.`)) return
     setProcessando(id)
@@ -371,6 +385,17 @@ export default function Admin() {
                     Aprovar
                   </button>
                 )}
+                <select
+                  value={c.status}
+                  onChange={e => { if (confirm(`Alterar status para "${e.target.value}"?`)) alterarStatus(c.id, e.target.value) }}
+                  disabled={processando === c.id}
+                  style={{ padding: '8px 12px', backgroundColor: 'white', color: '#00210D', borderRadius: 8, border: '1px solid #E8E4DC', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <option value="pendente">Pendente</option>
+                  <option value="aguardando_aprovacao">Aguardando</option>
+                  <option value="ativo">Ativo</option>
+                </select>
+                
                 <button onClick={() => abrirEdicao(c)} disabled={processando === c.id}
                   style={{ backgroundColor: 'transparent', color: '#00210D', fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid #00210D', cursor: 'pointer', fontSize: 13 }}>
                   Editar
