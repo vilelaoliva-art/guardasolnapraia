@@ -129,7 +129,7 @@ export default function PainelPortaria() {
       carregarReservas(condo.id, dataSelecionada)
     }
   }, [dataSelecionada, condo?.id])
-
+  
   function formatarData(dataStr: string) {
     const [ano, mes, dia] = dataStr.split('-')
     return `${dia}/${mes}/${ano}`
@@ -381,6 +381,24 @@ export default function PainelPortaria() {
         >
           {gerandoPdf ? 'Gerando PDF...' : '📄 Gerar PDF da lista'}
         </button>
+        <a
+        href={`/${localizacaoSlug}/${condominioSlug}/portaria/relatorio`}
+          style={{
+            display: 'block',
+            textAlign: 'center',
+            backgroundColor: 'transparent',
+            color: '#00210D',
+            border: '1px solid #00210D',
+            padding: '12px 16px',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: 'none',
+            marginBottom: 16,
+          }}
+        >
+          Ver relatório do mês
+        </a>
 
         {/* Lista de reservas */}
         <div className="card-form" style={{ marginBottom: 32 }}>

@@ -15,12 +15,10 @@ type Condominio = {
 type Reserva = {
   id: string
   data: string
-  nome_morador: string
   unidade_id: string
-  unidades_guardasol: { numero: string } | null
 }
 
-export default function Relatorio() {
+export default function RelatorioPortaria() {
   const params = useParams()
   const localizacaoSlug = params.localizacao as string
   const condominioSlug = params.condominio as string
@@ -31,8 +29,6 @@ export default function Relatorio() {
 
   const [condo, setCondo] = useState<Condominio | null>(null)
   const [reservas, setReservas] = useState<Reserva[]>([])
-  const [reservasMesAnterior, setReservasMesAnterior] = useState<Reserva[]>([])
-  const [totalUnidades, setTotalUnidades] = useState(0)
   const [carregando, setCarregando] = useState(true)
   const [autorizado, setAutorizado] = useState(false)
 
@@ -40,7 +36,6 @@ export default function Relatorio() {
 
   useEffect(() => {
     async function carregar() {
-      // Busca o condomínio primeiro
       const { data: localizacao } = await supabase
         .from('localizacoes')
         .select('id')
@@ -50,86 +45,47 @@ export default function Relatorio() {
 
       const { data: condoData } = await supabase
         .from('condominios_guardasol')
-        .select('*, localizacoes(nome)')
+        .select('id, nome, slug, endereco, localizacoes(nome)')
         .eq('slug', condominioSlug)
         .eq('localizacao_id', localizacao.id)
         .single()
       if (!condoData) { setCarregando(false); return }
 
-      // Verifica sessão
-      const auth = sessionStorage.getItem('sindico_auth_' + condoData.id) === 'true'
+      // Verifica sessão da portaria
+      const auth = sessionStorage.getItem('portaria_auth_' + condoData.id) === 'true'
       if (!auth) {
         window.location.href = '/login'
         return
       }
       setAutorizado(true)
-      setCondo(condoData as Condominio)
+      setCondo(condoData as unknown as Condominio)
 
-      // Total de unidades cadastradas
-      const { count: unidCount } = await supabase
-        .from('unidades_guardasol')
-        .select('*', { count: 'exact', head: true })
-        .eq('condominio_id', condoData.id)
-      setTotalUnidades(unidCount || 0)
-
-      // Reservas do mês selecionado
       const primeiroDia = new Date(ano, mes, 1).toISOString().split('T')[0]
       const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
       const { data: reservasMes } = await supabase
         .from('reservas_guardasol')
-        .select('id, data, nome_morador, unidade_id, unidades_guardasol(numero)')
+        .select('id, data, unidade_id')
         .eq('condominio_id', condoData.id)
         .gte('data', primeiroDia)
         .lte('data', ultimoDia)
-      setReservas((reservasMes as unknown as Reserva[]) || [])
-
-      // Reservas do mês anterior (pra comparação)
-      const mesAnterior = mes === 0 ? 11 : mes - 1
-      const anoMesAnterior = mes === 0 ? ano - 1 : ano
-      const primDiaAnt = new Date(anoMesAnterior, mesAnterior, 1).toISOString().split('T')[0]
-      const ultDiaAnt = new Date(anoMesAnterior, mesAnterior + 1, 0).toISOString().split('T')[0]
-      const { data: reservasAnt } = await supabase
-        .from('reservas_guardasol')
-        .select('id, data')
-        .eq('condominio_id', condoData.id)
-        .gte('data', primDiaAnt)
-        .lte('data', ultDiaAnt)
-      setReservasMesAnterior((reservasAnt as Reserva[]) || [])
+      setReservas((reservasMes as Reserva[]) || [])
 
       setCarregando(false)
     }
     carregar()
   }, [localizacaoSlug, condominioSlug, mes, ano])
 
-  // Cálculos
   const totalReservas = reservas.length
-  const totalMesAnterior = reservasMesAnterior.length
-  const variacao = totalMesAnterior === 0 ? null : Math.round(((totalReservas - totalMesAnterior) / totalMesAnterior) * 100)
 
-  // Ranking de unidades
-  const reservasPorUnidade = reservas.reduce((acc, r) => {
-    const num = r.unidades_guardasol?.numero || '—'
-    acc[num] = (acc[num] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-  const rankingUnidades = Object.entries(reservasPorUnidade)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-
-  // Dias mais procurados
   const reservasPorDia = reservas.reduce((acc, r) => {
     acc[r.data] = (acc[r.data] || 0) + 1
     return acc
   }, {} as Record<string, number>)
+
   const diasMaisProcurados = Object.entries(reservasPorDia)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
 
-  // Taxa de adesão
-  const unidadesUnicas = new Set(reservas.map(r => r.unidade_id)).size
-  const taxaAdesao = totalUnidades > 0 ? Math.round((unidadesUnicas / totalUnidades) * 100) : 0
-
-  // Monta grid do calendário do mês
   function gerarGridCalendario() {
     const primeiroDia = new Date(ano, mes, 1)
     const ultimoDia = new Date(ano, mes + 1, 0)
@@ -144,7 +100,6 @@ export default function Relatorio() {
     return grid
   }
 
-  // Encontra o maior número de kits num dia (pra calcular intensidade da cor)
   const maxKitsNoDia = Math.max(0, ...Object.values(reservasPorDia))
 
   function formatarData(dataStr: string) {
@@ -175,7 +130,6 @@ export default function Relatorio() {
       `}</style>
 
       <main style={{ minHeight: '100vh', backgroundColor: '#FAF6EE', padding: '40px 20px' }}>
-        {/* Botões e seletor (não imprimem) */}
         <div className="nao-imprimir" style={{ maxWidth: 900, margin: '0 auto 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <button onClick={() => window.history.back()} style={{ backgroundColor: 'transparent', color: '#00210D', border: '1px solid #00210D', borderRadius: 999, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
@@ -196,12 +150,9 @@ export default function Relatorio() {
           </div>
         </div>
 
-        {/* Folha do relatório */}
         <div style={{ maxWidth: 900, margin: '0 auto', backgroundColor: 'white', padding: 40, borderRadius: 12, border: '1px solid #E8E4DC' }}>
-
-          {/* Cabeçalho */}
           <div style={{ borderBottom: '2px solid #00210D', paddingBottom: 16, marginBottom: 24 }}>
-            <div style={{ fontSize: 12, color: '#888', letterSpacing: 1, fontWeight: 600, marginBottom: 4 }}>GUARDA-SOL NA PRAIA · RELATÓRIO DO SÍNDICO</div>
+            <div style={{ fontSize: 12, color: '#888', letterSpacing: 1, fontWeight: 600, marginBottom: 4 }}>GUARDA-SOL NA PRAIA · RELATÓRIO DA PORTARIA</div>
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 4 }}>{condo.nome}</h1>
             <p style={{ fontSize: 13, color: '#555' }}>{condo.endereco} · {condo.localizacoes?.nome}</p>
             <p style={{ fontSize: 14, color: '#00210D', fontWeight: 600, marginTop: 12 }}>
@@ -209,37 +160,13 @@ export default function Relatorio() {
             </p>
           </div>
 
-          {/* Resumo */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Resumo</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 32 }}>
-            <div style={{ backgroundColor: '#FAF6EE', padding: 18, borderRadius: 10, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, fontWeight: 700, color: '#00210D' }}>{totalReservas}</div>
-              <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Reservas no mês</div>
-              {variacao !== null && (
-                <div style={{ fontSize: 11, color: variacao >= 0 ? '#065F46' : '#B91C1C', marginTop: 4, fontWeight: 600 }}>
-                  {variacao >= 0 ? '↑' : '↓'} {Math.abs(variacao)}% vs mês anterior
-                </div>
-              )}
-            </div>
-            <div style={{ backgroundColor: '#FAF6EE', padding: 18, borderRadius: 10, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, fontWeight: 700, color: '#00210D' }}>{unidadesUnicas}</div>
-              <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Unidades ativas</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>de {totalUnidades} cadastradas</div>
-            </div>
-            <div style={{ backgroundColor: '#FAF6EE', padding: 18, borderRadius: 10, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, fontWeight: 700, color: '#00210D' }}>{taxaAdesao}%</div>
-              <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Taxa de adesão</div>
-            </div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Total no mês</h2>
+          <div style={{ backgroundColor: '#FAF6EE', padding: 24, borderRadius: 10, textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ fontSize: 42, fontWeight: 700, color: '#00210D' }}>{totalReservas}</div>
+            <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>Kits entregues no mês</div>
           </div>
 
-          {/* Ranking de unidades */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>
-            Unidades que mais usaram
-            {/* Calendário-resumo do mês */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>
-            Kits por dia
-          </h2>
-
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Kits por dia</h2>
           {totalReservas === 0 ? (
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
           ) : (
@@ -259,7 +186,6 @@ export default function Relatorio() {
                   const kits = reservasPorDia[dataStr] || 0
                   const intensidade = maxKitsNoDia > 0 ? kits / maxKitsNoDia : 0
 
-                  // Cor de fundo: branco quando 0, gradiente de bege a verde escuro
                   let bgColor = 'white'
                   let textColor = '#888'
                   if (kits > 0) {
@@ -297,34 +223,8 @@ export default function Relatorio() {
               </div>
             </div>
           )}
-          </h2>
-          {rankingUnidades.length === 0 ? (
-            <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 32, fontSize: 14 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #E8E4DC' }}>
-                  <th style={{ textAlign: 'left', padding: '10px 8px', color: '#888', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>#</th>
-                  <th style={{ textAlign: 'left', padding: '10px 8px', color: '#888', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Apto</th>
-                  <th style={{ textAlign: 'right', padding: '10px 8px', color: '#888', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>Reservas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankingUnidades.map(([apto, total], i) => (
-                  <tr key={apto} style={{ borderBottom: '1px solid #F5F5F5' }}>
-                    <td style={{ padding: '10px 8px', color: '#888' }}>{i + 1}</td>
-                    <td style={{ padding: '10px 8px', color: '#00210D', fontWeight: 600 }}>{apto}</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'right', color: '#00210D', fontWeight: 600 }}>{total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
 
-          {/* Dias mais procurados */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>
-            Dias mais procurados
-          </h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Dias mais procurados</h2>
           {diasMaisProcurados.length === 0 ? (
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
           ) : (
@@ -346,7 +246,6 @@ export default function Relatorio() {
             </table>
           )}
 
-          {/* Rodapé */}
           <div style={{ borderTop: '1px solid #E8E4DC', paddingTop: 16, marginTop: 24, fontSize: 11, color: '#888', textAlign: 'center' }}>
             Gerado em {new Date().toLocaleDateString('pt-BR')} · Oferecido por SS Condo · Safe Season
           </div>
