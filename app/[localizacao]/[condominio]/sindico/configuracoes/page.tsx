@@ -132,10 +132,17 @@ export default function Configuracoes() {
     e.preventDefault()
     if (!condo) return
     setMsgSenhaSindico('')
-    if (senhaAtual !== condo.senha_sindico) {
+
+    // Verifica a senha atual via RPC (não expõe a senha)
+    const { data: senhaOk, error: erroRpc } = await supabase.rpc('verificar_senha_sindico', {
+      p_condominio_id: condo.id,
+      p_senha: senhaAtual,
+    })
+    if (erroRpc || !senhaOk) {
       setMsgSenhaSindico('Senha atual incorreta.')
       return
     }
+
     if (novaSenhaSindico.length < 4) {
       setMsgSenhaSindico('A nova senha deve ter pelo menos 4 caracteres.')
       return
