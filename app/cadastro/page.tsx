@@ -475,7 +475,7 @@ export default function Cadastro() {
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F0E9D7')}
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
                 >
-                  Não encontrei minha localização
+                  Cadastrar nova localização
                 </div>
               </div>
             )}
@@ -556,7 +556,7 @@ export default function Cadastro() {
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F0E9D7')}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
                       >
-                        Não encontrei meu condomínio
+                        Cadastrar novo condomínio
                       </div>
                     </div>
                   )}
