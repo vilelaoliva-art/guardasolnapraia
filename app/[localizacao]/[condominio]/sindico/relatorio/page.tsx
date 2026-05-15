@@ -40,7 +40,6 @@ export default function Relatorio() {
 
   useEffect(() => {
     async function carregar() {
-      // Busca o condomínio primeiro
       const { data: localizacao } = await supabase
         .from('localizacoes')
         .select('id')
@@ -56,7 +55,6 @@ export default function Relatorio() {
         .single()
       if (!condoData) { setCarregando(false); return }
 
-      // Verifica sessão
       const auth = sessionStorage.getItem('sindico_auth_' + condoData.id) === 'true'
       if (!auth) {
         window.location.href = '/login'
@@ -65,14 +63,12 @@ export default function Relatorio() {
       setAutorizado(true)
       setCondo(condoData as Condominio)
 
-      // Total de unidades cadastradas
       const { count: unidCount } = await supabase
         .from('unidades_guardasol')
         .select('*', { count: 'exact', head: true })
         .eq('condominio_id', condoData.id)
       setTotalUnidades(unidCount || 0)
 
-      // Reservas do mês selecionado
       const primeiroDia = new Date(ano, mes, 1).toISOString().split('T')[0]
       const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
       const { data: reservasMes } = await supabase
@@ -83,7 +79,6 @@ export default function Relatorio() {
         .lte('data', ultimoDia)
       setReservas((reservasMes as unknown as Reserva[]) || [])
 
-      // Reservas do mês anterior (pra comparação)
       const mesAnterior = mes === 0 ? 11 : mes - 1
       const anoMesAnterior = mes === 0 ? ano - 1 : ano
       const primDiaAnt = new Date(anoMesAnterior, mesAnterior, 1).toISOString().split('T')[0]
@@ -101,12 +96,10 @@ export default function Relatorio() {
     carregar()
   }, [localizacaoSlug, condominioSlug, mes, ano])
 
-  // Cálculos
   const totalReservas = reservas.length
   const totalMesAnterior = reservasMesAnterior.length
   const variacao = totalMesAnterior === 0 ? null : Math.round(((totalReservas - totalMesAnterior) / totalMesAnterior) * 100)
 
-  // Ranking de unidades
   const reservasPorUnidade = reservas.reduce((acc, r) => {
     const num = r.unidades_guardasol?.numero || '—'
     acc[num] = (acc[num] || 0) + 1
@@ -116,7 +109,6 @@ export default function Relatorio() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
 
-  // Dias mais procurados
   const reservasPorDia = reservas.reduce((acc, r) => {
     acc[r.data] = (acc[r.data] || 0) + 1
     return acc
@@ -125,11 +117,9 @@ export default function Relatorio() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
 
-  // Taxa de adesão
   const unidadesUnicas = new Set(reservas.map(r => r.unidade_id)).size
   const taxaAdesao = totalUnidades > 0 ? Math.round((unidadesUnicas / totalUnidades) * 100) : 0
 
-  // Monta grid do calendário do mês
   function gerarGridCalendario() {
     const primeiroDia = new Date(ano, mes, 1)
     const ultimoDia = new Date(ano, mes + 1, 0)
@@ -144,7 +134,6 @@ export default function Relatorio() {
     return grid
   }
 
-  // Encontra o maior número de kits num dia (pra calcular intensidade da cor)
   const maxKitsNoDia = Math.max(0, ...Object.values(reservasPorDia))
 
   function formatarData(dataStr: string) {
@@ -175,7 +164,6 @@ export default function Relatorio() {
       `}</style>
 
       <main style={{ minHeight: '100vh', backgroundColor: '#FAF6EE', padding: '40px 20px' }}>
-        {/* Botões e seletor (não imprimem) */}
         <div className="nao-imprimir" style={{ maxWidth: 900, margin: '0 auto 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <button onClick={() => window.history.back()} style={{ backgroundColor: 'transparent', color: '#00210D', border: '1px solid #00210D', borderRadius: 999, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
@@ -196,10 +184,8 @@ export default function Relatorio() {
           </div>
         </div>
 
-        {/* Folha do relatório */}
         <div style={{ maxWidth: 900, margin: '0 auto', backgroundColor: 'white', padding: 40, borderRadius: 12, border: '1px solid #E8E4DC' }}>
 
-          {/* Cabeçalho */}
           <div style={{ borderBottom: '2px solid #00210D', paddingBottom: 16, marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: '#888', letterSpacing: 1, fontWeight: 600, marginBottom: 4 }}>GUARDA-SOL NA PRAIA · RELATÓRIO DO SÍNDICO</div>
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 4 }}>{condo.nome}</h1>
@@ -209,7 +195,6 @@ export default function Relatorio() {
             </p>
           </div>
 
-          {/* Resumo */}
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Resumo</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 32 }}>
             <div style={{ backgroundColor: '#FAF6EE', padding: 18, borderRadius: 10, textAlign: 'center' }}>
@@ -232,26 +217,19 @@ export default function Relatorio() {
             </div>
           </div>
 
-          {/* Ranking de unidades */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>
-            Unidades que mais usaram
-            {/* Calendário-resumo do mês */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>
-            Kits por dia
-          </h2>
-
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Kits por dia</h2>
           {totalReservas === 0 ? (
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
           ) : (
             <div style={{ marginBottom: 32 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4, maxWidth: 320 }}>
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((dia, idx) => (
-                  <div key={idx} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#888', padding: '4px 0', textTransform: 'uppercase' }}>
+                  <div key={idx} style={{ textAlign: 'center', fontSize: 10, fontWeight: 600, color: '#888', padding: '2px 0', textTransform: 'uppercase' }}>
                     {dia}
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, maxWidth: 320 }}>
                 {gerarGridCalendario().map((dataStr, idx) => {
                   if (!dataStr) return <div key={`empty-${idx}`} />
 
@@ -259,7 +237,6 @@ export default function Relatorio() {
                   const kits = reservasPorDia[dataStr] || 0
                   const intensidade = maxKitsNoDia > 0 ? kits / maxKitsNoDia : 0
 
-                  // Cor de fundo: branco quando 0, gradiente de bege a verde escuro
                   let bgColor = 'white'
                   let textColor = '#888'
                   if (kits > 0) {
@@ -269,35 +246,34 @@ export default function Relatorio() {
                   }
 
                   return (
-                    <div key={dataStr} style={{ aspectRatio: '1', backgroundColor: bgColor, color: textColor, border: '1px solid #E8E4DC', borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 4 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{dia}</div>
+                    <div key={dataStr} style={{ aspectRatio: '1', backgroundColor: bgColor, color: textColor, border: '0.5px solid #E8E4DC', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600 }}>{dia}</div>
                       {kits > 0 && (
-                        <div style={{ fontSize: 11, marginTop: 2, fontWeight: 600 }}>
-                          {kits} {kits === 1 ? 'kit' : 'kits'}
-                        </div>
+                        <div style={{ fontSize: 9, marginTop: 1, fontWeight: 600 }}>{kits}</div>
                       )}
                     </div>
                   )
                 })}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 11, color: '#888' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 14, height: 14, backgroundColor: '#FAF6EE', border: '1px solid #E8E4DC', borderRadius: 3 }} />
+              <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 11, color: '#888', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 12, height: 12, backgroundColor: '#FAF6EE', border: '0.5px solid #E8E4DC', borderRadius: 3 }} />
                   <span>Pouco</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 14, height: 14, backgroundColor: '#C0AB60', borderRadius: 3 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 12, height: 12, backgroundColor: '#C0AB60', borderRadius: 3 }} />
                   <span>Médio</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 14, height: 14, backgroundColor: '#00210D', borderRadius: 3 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 12, height: 12, backgroundColor: '#00210D', borderRadius: 3 }} />
                   <span>Muito</span>
                 </div>
               </div>
             </div>
           )}
-          </h2>
+
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Unidades que mais usaram</h2>
           {rankingUnidades.length === 0 ? (
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
           ) : (
@@ -321,10 +297,7 @@ export default function Relatorio() {
             </table>
           )}
 
-          {/* Dias mais procurados */}
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>
-            Dias mais procurados
-          </h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#00210D', marginBottom: 14 }}>Dias mais procurados</h2>
           {diasMaisProcurados.length === 0 ? (
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
           ) : (
@@ -346,7 +319,6 @@ export default function Relatorio() {
             </table>
           )}
 
-          {/* Rodapé */}
           <div style={{ borderTop: '1px solid #E8E4DC', paddingTop: 16, marginTop: 24, fontSize: 11, color: '#888', textAlign: 'center' }}>
             Gerado em {new Date().toLocaleDateString('pt-BR')} · Oferecido por SS Condo · Safe Season
           </div>
