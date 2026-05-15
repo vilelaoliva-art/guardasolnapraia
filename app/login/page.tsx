@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
@@ -14,14 +14,24 @@ export default function Login() {
   const router = useRouter()
 
   const [localizacoes, setLocalizacoes] = useState<Localizacao[]>([])
-  const [localizacaoId, setLocalizacaoId] = useState('')
   const [condominios, setCondominios] = useState<Condominio[]>([])
-  const [condominioId, setCondominioId] = useState('')
+
+  const [buscaLoc, setBuscaLoc] = useState('')
+  const [locSelecionada, setLocSelecionada] = useState<Localizacao | null>(null)
+  const [mostrarSugLoc, setMostrarSugLoc] = useState(false)
+
+  const [buscaCondo, setBuscaCondo] = useState('')
+  const [condoSelecionado, setCondoSelecionado] = useState<Condominio | null>(null)
+  const [mostrarSugCondo, setMostrarSugCondo] = useState(false)
+
   const [perfil, setPerfil] = useState<Perfil | ''>('')
   const [senha, setSenha] = useState('')
   const [verSenha, setVerSenha] = useState(false)
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
+
+  const refLoc = useRef<HTMLDivElement>(null)
+  const refCondo = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function carregar() {
@@ -33,43 +43,64 @@ export default function Login() {
 
   useEffect(() => {
     async function carregar() {
-      if (!localizacaoId) { setCondominios([]); return }
+      if (!locSelecionada) { setCondominios([]); return }
       const { data } = await supabase
         .from('condominios_guardasol')
         .select('id, nome, slug, status')
-        .eq('localizacao_id', localizacaoId)
+        .eq('localizacao_id', locSelecionada.id)
         .eq('status', 'ativo')
         .order('nome')
       setCondominios((data as Condominio[]) || [])
     }
     carregar()
-    setCondominioId('')
+    setBuscaCondo('')
+    setCondoSelecionado(null)
     setPerfil('')
     setSenha('')
-  }, [localizacaoId])
+  }, [locSelecionada])
 
-  // quando troca o condomínio, reseta perfil e senha
   useEffect(() => {
     setPerfil('')
     setSenha('')
-  }, [condominioId])
+  }, [condoSelecionado])
+
+  // Fechar sugestões ao clicar fora
+  useEffect(() => {
+    function handleClickFora(e: MouseEvent) {
+      if (refLoc.current && !refLoc.current.contains(e.target as Node)) setMostrarSugLoc(false)
+      if (refCondo.current && !refCondo.current.contains(e.target as Node)) setMostrarSugCondo(false)
+    }
+    document.addEventListener('mousedown', handleClickFora)
+    return () => document.removeEventListener('mousedown', handleClickFora)
+  }, [])
+
+  function normalizar(s: string) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  }
+
+  const sugestoesLoc = buscaLoc.trim().length > 0
+    ? localizacoes.filter(l => normalizar(l.nome).includes(normalizar(buscaLoc))).slice(0, 8)
+    : []
+
+  const sugestoesCondo = buscaCondo.trim().length > 0
+    ? condominios.filter(c => normalizar(c.nome).includes(normalizar(buscaCondo))).slice(0, 8)
+    : []
 
   async function fazerLogin(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
     setCarregando(true)
 
-    if (!localizacaoId || !condominioId || !perfil || !senha) {
+    if (!locSelecionada || !condoSelecionado || !perfil || !senha) {
       setErro('Preencha todos os campos.')
       setCarregando(false)
       return
     }
 
-    // Busca slug do condomínio e localização (sem ler senha)
     const { data } = await supabase
       .from('condominios_guardasol')
       .select(`slug, localizacoes(slug)`)
-      .eq('id', condominioId)
+      .eq('id', condoSelecionado.id)
       .single()
 
     if (!data) {
@@ -78,10 +109,9 @@ export default function Login() {
       return
     }
 
-    // Verifica a senha pela função RPC (não expõe a senha)
     const rpcName = perfil === 'sindico' ? 'verificar_senha_sindico' : 'verificar_senha_portaria'
     const { data: senhaOk, error: erroRpc } = await supabase.rpc(rpcName, {
-      p_condominio_id: condominioId,
+      p_condominio_id: condoSelecionado.id,
       p_senha: senha,
     })
 
@@ -95,15 +125,38 @@ export default function Login() {
     const condoSlug = (data as unknown as { slug: string }).slug
 
     if (perfil === 'sindico') {
-      sessionStorage.setItem('sindico_auth_' + condominioId, 'true')
+      sessionStorage.setItem('sindico_auth_' + condoSelecionado.id, 'true')
       router.push(`/${locSlug}/${condoSlug}/sindico`)
     } else {
-      sessionStorage.setItem('portaria_auth_' + condominioId, 'true')
+      sessionStorage.setItem('portaria_auth_' + condoSelecionado.id, 'true')
       router.push(`/${locSlug}/${condoSlug}/portaria`)
     }
   }
 
   const labelSenha = perfil === 'portaria' ? 'Senha da portaria *' : 'Senha do síndico *'
+
+  const estiloSugestoes: React.CSSProperties = {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    border: '1px solid #E8E4DC',
+    borderRadius: 8,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+    maxHeight: 240,
+    overflowY: 'auto',
+    zIndex: 10,
+    textAlign: 'left',
+  }
+
+  const estiloItem: React.CSSProperties = {
+    padding: '10px 14px',
+    fontSize: 14,
+    color: '#00210D',
+    cursor: 'pointer',
+    borderBottom: '1px solid #F5F2EC',
+  }
 
   return (
     <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
@@ -121,22 +174,76 @@ export default function Login() {
 
         <form onSubmit={fazerLogin}>
           <div className="card-form">
-            <div style={{ marginBottom: 16 }}>
+            <div ref={refLoc} style={{ position: 'relative', marginBottom: 16 }}>
               <label>Localização *</label>
-              <select value={localizacaoId} onChange={e => setLocalizacaoId(e.target.value)} required>
-                <option value="">Selecione...</option>
-                {localizacoes.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              </select>
+              <input
+                type="text"
+                placeholder="Digite a localização"
+                value={buscaLoc}
+                onChange={e => {
+                  setBuscaLoc(e.target.value)
+                  setLocSelecionada(null)
+                  setMostrarSugLoc(true)
+                }}
+                onFocus={() => setMostrarSugLoc(true)}
+                required
+              />
+              {mostrarSugLoc && sugestoesLoc.length > 0 && (
+                <div style={estiloSugestoes}>
+                  {sugestoesLoc.map(l => (
+                    <div
+                      key={l.id}
+                      onClick={() => {
+                        setLocSelecionada(l)
+                        setBuscaLoc(l.nome)
+                        setMostrarSugLoc(false)
+                      }}
+                      style={estiloItem}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                    >
+                      {l.nome}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {localizacaoId && (
-              <div style={{ marginBottom: 16 }}>
+            {locSelecionada && (
+              <div ref={refCondo} style={{ position: 'relative', marginBottom: 16 }}>
                 <label>Condomínio *</label>
-                <select value={condominioId} onChange={e => setCondominioId(e.target.value)} required>
-                  <option value="">Selecione...</option>
-                  {condominios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-                {condominios.length === 0 && (
+                <input
+                  type="text"
+                  placeholder="Digite o condomínio"
+                  value={buscaCondo}
+                  onChange={e => {
+                    setBuscaCondo(e.target.value)
+                    setCondoSelecionado(null)
+                    setMostrarSugCondo(true)
+                  }}
+                  onFocus={() => setMostrarSugCondo(true)}
+                  required
+                />
+                {mostrarSugCondo && sugestoesCondo.length > 0 && (
+                  <div style={estiloSugestoes}>
+                    {sugestoesCondo.map(c => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setCondoSelecionado(c)
+                          setBuscaCondo(c.nome)
+                          setMostrarSugCondo(false)
+                        }}
+                        style={estiloItem}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                      >
+                        {c.nome}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {buscaCondo.trim().length > 0 && sugestoesCondo.length === 0 && condominios.length === 0 && (
                   <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
                     Nenhum condomínio ativo nesta localização.
                   </span>
@@ -144,7 +251,7 @@ export default function Login() {
               </div>
             )}
 
-            {condominioId && (
+            {condoSelecionado && (
               <div style={{ marginBottom: 16 }}>
                 <label>Entrar como *</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -184,7 +291,7 @@ export default function Login() {
               </div>
             )}
 
-            {condominioId && perfil && (
+            {condoSelecionado && perfil && (
               <div style={{ marginBottom: 16 }}>
                 <label>{labelSenha}</label>
                 <div style={{ position: 'relative' }}>

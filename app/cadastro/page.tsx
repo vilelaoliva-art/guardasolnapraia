@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
@@ -9,16 +9,21 @@ type Condominio = { id: string; nome: string; slug: string; status: string }
 
 const WHATSAPP_SUPORTE = '5513996655551'
 
-export default function Login() {
+export default function Cadastro() {
   const router = useRouter()
 
   const [localizacoes, setLocalizacoes] = useState<Localizacao[]>([])
-  const [localizacaoId, setLocalizacaoId] = useState('')
+  const [condominios, setCondominios] = useState<Condominio[]>([])
+
+  const [buscaLoc, setBuscaLoc] = useState('')
+  const [locSelecionada, setLocSelecionada] = useState<Localizacao | null>(null)
+  const [mostrarSugLoc, setMostrarSugLoc] = useState(false)
   const [outraLocalizacao, setOutraLocalizacao] = useState(false)
   const [novaLocalizacaoNome, setNovaLocalizacaoNome] = useState('')
 
-  const [condominios, setCondominios] = useState<Condominio[]>([])
+  const [buscaCondo, setBuscaCondo] = useState('')
   const [condominioSelecionado, setCondominioSelecionado] = useState<Condominio | null>(null)
+  const [mostrarSugCondo, setMostrarSugCondo] = useState(false)
   const [outroCondominio, setOutroCondominio] = useState(false)
   const [novoCondominioNome, setNovoCondominioNome] = useState('')
 
@@ -42,6 +47,9 @@ export default function Login() {
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
 
+  const refLoc = useRef<HTMLDivElement>(null)
+  const refCondo = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     async function carregar() {
       const { data } = await supabase.from('localizacoes').select('id, nome, slug').order('nome')
@@ -52,16 +60,38 @@ export default function Login() {
 
   useEffect(() => {
     async function carregar() {
-      if (!localizacaoId) { setCondominios([]); return }
+      if (!locSelecionada) { setCondominios([]); return }
       const { data } = await supabase
         .from('condominios_guardasol')
         .select('id, nome, slug, status')
-        .eq('localizacao_id', localizacaoId)
+        .eq('localizacao_id', locSelecionada.id)
         .order('nome')
       setCondominios((data as Condominio[]) || [])
     }
     carregar()
-  }, [localizacaoId])
+  }, [locSelecionada])
+
+  // Fechar sugestões ao clicar fora
+  useEffect(() => {
+    function handleClickFora(e: MouseEvent) {
+      if (refLoc.current && !refLoc.current.contains(e.target as Node)) setMostrarSugLoc(false)
+      if (refCondo.current && !refCondo.current.contains(e.target as Node)) setMostrarSugCondo(false)
+    }
+    document.addEventListener('mousedown', handleClickFora)
+    return () => document.removeEventListener('mousedown', handleClickFora)
+  }, [])
+
+  function normalizar(s: string) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  }
+
+  const sugestoesLoc = buscaLoc.trim().length > 0
+    ? localizacoes.filter(l => normalizar(l.nome).includes(normalizar(buscaLoc))).slice(0, 8)
+    : []
+
+  const sugestoesCondo = buscaCondo.trim().length > 0
+    ? condominios.filter(c => normalizar(c.nome).includes(normalizar(buscaCondo))).slice(0, 8)
+    : []
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -87,7 +117,7 @@ export default function Login() {
       return
     }
 
-    if (!localizacaoId || !condominioSelecionado) {
+    if (!locSelecionada || !condominioSelecionado) {
       setErro('Selecione a localização e o condomínio.')
       return
     }
@@ -108,16 +138,27 @@ export default function Login() {
 
     const { data } = await supabase
       .from('condominios_guardasol')
-      .select('senha_sindico, slug, localizacoes(slug)')
+      .select(`slug, localizacoes(slug)`)
       .eq('id', condominioSelecionado.id)
       .single()
 
-    if (!data || data.senha_sindico !== senhaLogin) {
+    if (!data) {
+      setErro('Condomínio não encontrado.')
+      return
+    }
+
+    const { data: senhaOk, error: erroRpc } = await supabase.rpc('verificar_senha_sindico', {
+      p_condominio_id: condominioSelecionado.id,
+      p_senha: senhaLogin,
+    })
+
+    if (erroRpc || !senhaOk) {
       setErro('Senha incorreta.')
       return
     }
 
     const locSlug = (data.localizacoes as unknown as { slug: string } | null)?.slug
+    sessionStorage.setItem('sindico_auth_' + condominioSelecionado.id, 'true')
     router.push(`/${locSlug}/${data.slug}/sindico`)
   }
 
@@ -153,7 +194,7 @@ export default function Login() {
     setErro('')
     setCarregando(true)
 
-    let locId = localizacaoId
+    let locId = locSelecionada?.id || ''
 
     if (outraLocalizacao) {
       const locSlug = gerarSlug(novaLocalizacaoNome)
@@ -211,6 +252,37 @@ export default function Login() {
         </a>
       </header>
     )
+  }
+
+  const estiloSugestoes: React.CSSProperties = {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    border: '1px solid #E8E4DC',
+    borderRadius: 8,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+    maxHeight: 240,
+    overflowY: 'auto',
+    zIndex: 10,
+    textAlign: 'left',
+  }
+
+  const estiloItem: React.CSSProperties = {
+    padding: '10px 14px',
+    fontSize: 14,
+    color: '#00210D',
+    cursor: 'pointer',
+    borderBottom: '1px solid #F5F2EC',
+  }
+
+  const estiloItemOutra: React.CSSProperties = {
+    ...estiloItem,
+    color: '#00210D',
+    fontWeight: 600,
+    backgroundColor: '#FAF6EE',
+    fontStyle: 'italic',
   }
 
   if (etapa === 'sucesso') {
@@ -347,67 +419,161 @@ export default function Login() {
       <section style={{ flex: 1, padding: '40px 24px', maxWidth: 480, margin: '0 auto', width: '100%' }}>
         <a href="/" style={{ color: '#555', fontSize: 13, textDecoration: 'none', display: 'block', marginBottom: 20 }}>← Voltar</a>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: '#00210D', marginBottom: 8 }}>Acesso do síndico</h1>
-        <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Selecione a localização e o condomínio para continuar.</p>
+        <p style={{ fontSize: 14, color: '#555', marginBottom: 28 }}>Digite a localização e o condomínio para continuar.</p>
 
         <div className="card-form">
-          <div style={{ marginBottom: 16 }}>
+          {/* Localização */}
+          <div ref={refLoc} style={{ position: 'relative', marginBottom: 16 }}>
             <label>Localização *</label>
-            <select value={outraLocalizacao ? '__outra__' : localizacaoId} onChange={e => {
-              if (e.target.value === '__outra__') {
-                setOutraLocalizacao(true)
-                setLocalizacaoId('')
-                setCondominioSelecionado(null)
-              } else {
-                setOutraLocalizacao(false)
-                setLocalizacaoId(e.target.value)
-                setCondominioSelecionado(null)
-                setOutroCondominio(false)
-              }
-            }} required>
-              <option value="">Selecione...</option>
-              {localizacoes.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              <option value="__outra__">Outra (não está na lista)</option>
-            </select>
+            <input
+              type="text"
+              placeholder="Digite a localização"
+              value={outraLocalizacao ? novaLocalizacaoNome : buscaLoc}
+              onChange={e => {
+                if (outraLocalizacao) {
+                  setNovaLocalizacaoNome(e.target.value)
+                } else {
+                  setBuscaLoc(e.target.value)
+                  setLocSelecionada(null)
+                  setMostrarSugLoc(true)
+                  setCondominioSelecionado(null)
+                  setBuscaCondo('')
+                  setOutroCondominio(false)
+                }
+              }}
+              onFocus={() => { if (!outraLocalizacao) setMostrarSugLoc(true) }}
+              required
+            />
+            {mostrarSugLoc && !outraLocalizacao && buscaLoc.trim().length > 0 && (
+              <div style={estiloSugestoes}>
+                {sugestoesLoc.map(l => (
+                  <div
+                    key={l.id}
+                    onClick={() => {
+                      setLocSelecionada(l)
+                      setBuscaLoc(l.nome)
+                      setMostrarSugLoc(false)
+                    }}
+                    style={estiloItem}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                  >
+                    {l.nome}
+                  </div>
+                ))}
+                <div
+                  onClick={() => {
+                    setOutraLocalizacao(true)
+                    setNovaLocalizacaoNome(buscaLoc)
+                    setLocSelecionada(null)
+                    setMostrarSugLoc(false)
+                    setCondominioSelecionado(null)
+                    setBuscaCondo('')
+                    setOutroCondominio(true)
+                  }}
+                  style={estiloItemOutra}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F0E9D7')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
+                >
+                  Não encontrei minha localização
+                </div>
+              </div>
+            )}
+            {outraLocalizacao && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOutraLocalizacao(false)
+                  setNovaLocalizacaoNome('')
+                  setBuscaLoc('')
+                  setOutroCondominio(false)
+                  setNovoCondominioNome('')
+                }}
+                style={{ marginTop: 6, background: 'none', border: 'none', color: '#00210D', fontSize: 12, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+              >
+                ← buscar localização existente
+              </button>
+            )}
           </div>
 
-          {outraLocalizacao && (
-            <div style={{ marginBottom: 16 }}>
-              <label>Nome da localização *</label>
-              <input 
-                list="localizacoes-sugestoes"
-                value={novaLocalizacaoNome} 
-                onChange={e => setNovaLocalizacaoNome(e.target.value)} 
-                placeholder="Ex: Maresias, Guarujá..." 
-                required 
-              />
-              <datalist id="localizacoes-sugestoes">
-                {localizacoes.map(l => <option key={l.id} value={l.nome} />)}
-              </datalist>
-            </div>
-          )}
-
-          {(localizacaoId || outraLocalizacao) && (
-            <div style={{ marginBottom: 16 }}>
+          {/* Condomínio */}
+          {(locSelecionada || outraLocalizacao) && (
+            <div ref={refCondo} style={{ position: 'relative', marginBottom: 16 }}>
               <label>Condomínio *</label>
-              {!outraLocalizacao && (
-                <select value={outroCondominio ? '__outro__' : (condominioSelecionado?.id || '')} onChange={e => {
-                  if (e.target.value === '__outro__') {
-                    setOutroCondominio(true)
-                    setCondominioSelecionado(null)
-                  } else {
-                    setOutroCondominio(false)
-                    const cond = condominios.find(c => c.id === e.target.value) || null
-                    setCondominioSelecionado(cond)
-                  }
-                }} required>
-                  <option value="">Selecione...</option>
-                  {condominios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                  <option value="__outro__">Outro (não está na lista)</option>
-                </select>
-              )}
-
-              {(outroCondominio || outraLocalizacao) && (
-                <input value={novoCondominioNome} onChange={e => setNovoCondominioNome(e.target.value)} placeholder="Nome do condomínio" required style={{ marginTop: outraLocalizacao ? 0 : 8 }} />
+              {outraLocalizacao ? (
+                <input
+                  value={novoCondominioNome}
+                  onChange={e => setNovoCondominioNome(e.target.value)}
+                  placeholder="Nome do condomínio"
+                  required
+                />
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Digite o condomínio"
+                    value={outroCondominio ? novoCondominioNome : buscaCondo}
+                    onChange={e => {
+                      if (outroCondominio) {
+                        setNovoCondominioNome(e.target.value)
+                      } else {
+                        setBuscaCondo(e.target.value)
+                        setCondominioSelecionado(null)
+                        setMostrarSugCondo(true)
+                      }
+                    }}
+                    onFocus={() => { if (!outroCondominio) setMostrarSugCondo(true) }}
+                    required
+                  />
+                  {mostrarSugCondo && !outroCondominio && buscaCondo.trim().length > 0 && (
+                    <div style={estiloSugestoes}>
+                      {sugestoesCondo.map(c => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setCondominioSelecionado(c)
+                            setBuscaCondo(c.nome)
+                            setMostrarSugCondo(false)
+                          }}
+                          style={estiloItem}
+                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
+                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                        >
+                          {c.nome}
+                          <span style={{ marginLeft: 8, fontSize: 11, color: c.status === 'ativo' ? '#065F46' : '#8a7a44' }}>
+                            {c.status === 'ativo' ? '(ativo)' : c.status === 'aguardando_aprovacao' ? '(aguardando)' : '(novo)'}
+                          </span>
+                        </div>
+                      ))}
+                      <div
+                        onClick={() => {
+                          setOutroCondominio(true)
+                          setNovoCondominioNome(buscaCondo)
+                          setCondominioSelecionado(null)
+                          setMostrarSugCondo(false)
+                        }}
+                        style={estiloItemOutra}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F0E9D7')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FAF6EE')}
+                      >
+                        Não encontrei meu condomínio
+                      </div>
+                    </div>
+                  )}
+                  {outroCondominio && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOutroCondominio(false)
+                        setNovoCondominioNome('')
+                        setBuscaCondo('')
+                      }}
+                      style={{ marginTop: 6, background: 'none', border: 'none', color: '#00210D', fontSize: 12, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                    >
+                      ← buscar condomínio existente
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -418,7 +584,7 @@ export default function Login() {
         </div>
 
         <p style={{ marginTop: 20, fontSize: 13, color: '#555', textAlign: 'center', fontStyle: 'italic' }}>
-          Primeiro acesso? Selecione seu condomínio para ativá-lo.
+          Primeiro acesso? Comece digitando sua localização.
         </p>
       </section>
     </main>
