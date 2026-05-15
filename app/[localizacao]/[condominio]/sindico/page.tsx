@@ -258,7 +258,7 @@ export default function PainelSindico() {
             <div style={{ display: 'flex', gap: 8 }}>
               <input readOnly value={linkProprietario} style={{ flex: 1, fontSize: 13 }} />
               <button type="button" onClick={() => copiar(linkProprietario, 'Link')} style={{ padding: '10px 16px', backgroundColor: 'transparent', color: '#00210D', border: '1px solid #00210D', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Copiar</button>
-              <a href={`/${localizacaoSlug}/${condominioSlug}/qrcode`} target="_blank" rel="noopener noreferrer" style={{ padding: '10px 16px', backgroundColor: '#00210D', color: 'white', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}>QR code</a>
+              <a href={`/${localizacaoSlug}/${condominioSlug}/qrcode`} style={{ padding: '10px 16px', backgroundColor: '#00210D', color: 'white', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}>QR code</a>
             </div>
           </div>
 
