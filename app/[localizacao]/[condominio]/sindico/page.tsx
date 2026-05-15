@@ -308,8 +308,8 @@ export default function PainelSindico() {
 
         {/* Botão Relatório */}
         <div style={{ marginBottom: 16, marginTop: 4 }}>
-          <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/relatorio`} style={{ display: "block", textAlign: "center", backgroundColor: "transparent", color: "#00210D", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Ver relatório do mês</a>
-        <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/configuracoes`} style={{ display: "block", textAlign: "center", backgroundColor: "transparent", color: "#00210D", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none", marginTop: 8 }}>Configurações</a>
+          <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/relatorio`} style={{ display: "block", textAlign: "center", backgroundColor: "#00210D", color: "white", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Ver relatório do mês</a>
+        <a href={`/${localizacaoSlug}/${condominioSlug}/sindico/configuracoes`} style={{ display: "block", textAlign: "center", backgroundColor: "#00210D", color: "white", border: "1px solid #00210D", padding: "12px 16px", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none", marginTop: 8 }}>Configurações</a>
         </div>
         {/* Links */}
         <div className="card-form">

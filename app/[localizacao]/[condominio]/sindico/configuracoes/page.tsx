@@ -61,6 +61,7 @@ export default function Configuracoes() {
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [novaUnidade, setNovaUnidade] = useState('')
   const [salvandoUnidade, setSalvandoUnidade] = useState(false)
+  const [msgUnidade, setMsgUnidade] = useState('')
 
   useEffect(() => {
     async function carregar() {
@@ -177,20 +178,57 @@ export default function Configuracoes() {
     setSalvandoSenhaPortaria(false)
   }
 
-  async function adicionarUnidade(e: React.FormEvent) {
+  async function adicionarUnidades(e: React.FormEvent) {
     e.preventDefault()
     if (!condo || !novaUnidade.trim()) return
     setSalvandoUnidade(true)
+    setMsgUnidade('')
+
+    // Divide o texto por vírgula ou nova linha, remove duplicados e vazios
+    const numerosBrutos = novaUnidade
+      .split(/[,\n]/)
+      .map(n => n.trim())
+      .filter(n => n.length > 0)
+
+    const numerosUnicos = Array.from(new Set(numerosBrutos))
+
+    // Remove os que já existem
+    const jaExistentes = new Set(unidades.map(u => u.numero.toLowerCase()))
+    const numerosNovos = numerosUnicos.filter(n => !jaExistentes.has(n.toLowerCase()))
+
+    if (numerosNovos.length === 0) {
+      setMsgUnidade('Nenhuma unidade nova para adicionar.')
+      setSalvandoUnidade(false)
+      setTimeout(() => setMsgUnidade(''), 3000)
+      return
+    }
+
+    const registros = numerosNovos.map(numero => ({
+      condominio_id: condo.id,
+      numero,
+    }))
+
     const { data, error } = await supabase
       .from('unidades_guardasol')
-      .insert({ condominio_id: condo.id, numero: novaUnidade.trim() })
+      .insert(registros)
       .select()
-      .single()
+
     if (error) {
-      alert('Erro ao adicionar: ' + error.message)
+      setMsgUnidade('Erro ao adicionar: ' + error.message)
     } else if (data) {
-      setUnidades([...unidades, data as Unidade].sort((a, b) => a.numero.localeCompare(b.numero, 'pt', { numeric: true })))
+      const novas = [...unidades, ...(data as Unidade[])].sort((a, b) =>
+        a.numero.localeCompare(b.numero, 'pt', { numeric: true })
+      )
+      setUnidades(novas)
       setNovaUnidade('')
+      const total = data.length
+      const ignoradas = numerosBrutos.length - total
+      setMsgUnidade(
+        total === 1
+          ? '1 unidade adicionada!'
+          : `${total} unidades adicionadas!` + (ignoradas > 0 ? ` (${ignoradas} duplicada${ignoradas > 1 ? 's' : ''} ignorada${ignoradas > 1 ? 's' : ''})` : '')
+      )
+      setTimeout(() => setMsgUnidade(''), 4000)
     }
     setSalvandoUnidade(false)
   }
@@ -286,6 +324,51 @@ export default function Configuracoes() {
           </button>
         </form>
 
+        {/* Unidades — em destaque, antes das senhas */}
+        <div className="card-form" style={{ backgroundColor: '#FAF6EE', border: '2px solid #C0AB60', borderRadius: 12, padding: 20, marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#8a7a44', backgroundColor: 'rgba(192,171,96,0.25)', padding: '3px 10px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: 0.5 }}>Importante</span>
+          </div>
+          <h2 style={{ marginTop: 4 }}>Unidades cadastradas ({unidades.length})</h2>
+          <p style={{ fontSize: 13, color: '#555', marginTop: -8, marginBottom: 14 }}>
+            Cadastre todas as unidades antes de divulgar o link aos moradores. Você pode adicionar várias de uma vez, separadas por vírgula.
+          </p>
+
+          <form onSubmit={adicionarUnidades} style={{ marginBottom: 14 }}>
+            <textarea
+              value={novaUnidade}
+              onChange={e => setNovaUnidade(e.target.value)}
+              placeholder="Ex: 101, 102, 103, 201, 202B, 301"
+              rows={3}
+              style={{ resize: 'vertical', width: '100%', marginBottom: 8 }}
+            />
+            <button
+              type="submit"
+              disabled={salvandoUnidade || !novaUnidade.trim()}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#00210D', color: 'white', fontWeight: 600, borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}
+            >
+              {salvandoUnidade ? 'Salvando...' : 'Adicionar unidades'}
+            </button>
+          </form>
+
+          {msgUnidade && (
+            <div style={{ backgroundColor: msgUnidade.includes('Erro') || msgUnidade.includes('Nenhuma') ? '#FEE2E2' : '#D1FAE5', border: `1px solid ${msgUnidade.includes('Erro') || msgUnidade.includes('Nenhuma') ? '#FCA5A5' : '#6EE7B7'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: msgUnidade.includes('Erro') || msgUnidade.includes('Nenhuma') ? '#B91C1C' : '#065F46' }}>{msgUnidade}</div>
+          )}
+
+          {unidades.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma unidade cadastrada ainda.</p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {unidades.map(u => (
+                <div key={u.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 8px 6px 12px', backgroundColor: 'white', border: '1px solid #E8E4DC', borderRadius: 999, fontSize: 13, color: '#00210D' }}>
+                  <span>{u.numero}</span>
+                  <button onClick={() => removerUnidade(u.id, u.numero)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#B91C1C', fontWeight: 700, fontSize: 14, padding: '0 4px', lineHeight: 1 }} title="Remover">×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Trocar senha do síndico */}
         <form onSubmit={trocarSenhaSindico}>
           <div className="card-form">
@@ -336,31 +419,6 @@ export default function Configuracoes() {
             </button>
           </div>
         </form>
-
-        {/* Unidades */}
-        <div className="card-form">
-          <h2>Unidades cadastradas ({unidades.length})</h2>
-
-          <form onSubmit={adicionarUnidade} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <input value={novaUnidade} onChange={e => setNovaUnidade(e.target.value)} placeholder="Ex: 101, 202B" style={{ flex: 1 }} />
-            <button type="submit" disabled={salvandoUnidade || !novaUnidade.trim()} style={{ padding: '10px 20px', backgroundColor: '#00210D', color: 'white', fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap' }}>
-              {salvandoUnidade ? '...' : 'Adicionar'}
-            </button>
-          </form>
-
-          {unidades.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma unidade cadastrada.</p>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {unidades.map(u => (
-                <div key={u.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 8px 6px 12px', backgroundColor: '#FAF6EE', border: '1px solid #E8E4DC', borderRadius: 999, fontSize: 13, color: '#00210D' }}>
-                  <span>{u.numero}</span>
-                  <button onClick={() => removerUnidade(u.id, u.numero)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#B91C1C', fontWeight: 700, fontSize: 14, padding: '0 4px', lineHeight: 1 }} title="Remover">×</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
       </section>
     </main>
