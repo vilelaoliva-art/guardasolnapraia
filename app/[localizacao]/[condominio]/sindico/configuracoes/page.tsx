@@ -100,8 +100,10 @@ export default function Configuracoes() {
         .from('unidades_guardasol')
         .select('id, numero')
         .eq('condominio_id', condoData.id)
-        .order('numero')
-      setUnidades((unidadesData as Unidade[]) || [])
+      const ordenadas = ((unidadesData as Unidade[]) || []).sort((a, b) =>
+        a.numero.localeCompare(b.numero, 'pt', { numeric: true })
+      )
+      setUnidades(ordenadas)
 
       setCarregando(false)
     }

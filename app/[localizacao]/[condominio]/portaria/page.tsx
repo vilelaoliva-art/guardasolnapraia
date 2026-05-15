@@ -35,6 +35,35 @@ export default function PainelPortaria() {
   const [loading, setLoading] = useState(false)
   const [gerandoPdf, setGerandoPdf] = useState(false)
 
+  // Verifica se já está autenticado via sessionStorage (vindo do /login)
+  useEffect(() => {
+    async function checarSessao() {
+      const { data: localizacao } = await supabase
+        .from('localizacoes')
+        .select('id')
+        .eq('slug', localizacaoSlug)
+        .single()
+      if (!localizacao) return
+
+      const { data } = await supabase
+        .from('condominios_guardasol')
+        .select('*, localizacoes(nome)')
+        .eq('slug', condominioSlug)
+        .eq('localizacao_id', localizacao.id)
+        .single()
+      if (!data) return
+
+      const autorizado = sessionStorage.getItem('portaria_auth_' + data.id) === 'true'
+      if (autorizado) {
+        setCondo(data as Condominio)
+        setAutenticado(true)
+        carregarReservas(data.id, dataSelecionada)
+      }
+    }
+    checarSessao()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localizacaoSlug, condominioSlug])
+
   async function autenticar(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -79,6 +108,7 @@ export default function PainelPortaria() {
 
     setCondo(data as Condominio)
     setAutenticado(true)
+    sessionStorage.setItem('portaria_auth_' + data.id, 'true')
     setLoading(false)
     carregarReservas(data.id, dataSelecionada)
   }
