@@ -16,6 +16,7 @@ type Condominio = {
   sindico_email: string | null
   senha_sindico: string | null
   senha_portaria: string | null
+  senha_morador: string | null
   localizacoes?: { nome: string } | null
 }
 
@@ -56,6 +57,12 @@ export default function Configuracoes() {
   const [verNovaSenhaPortaria, setVerNovaSenhaPortaria] = useState(false)
   const [salvandoSenhaPortaria, setSalvandoSenhaPortaria] = useState(false)
   const [msgSenhaPortaria, setMsgSenhaPortaria] = useState('')
+  // Form de troca de senha do morador
+  const [novaSenhaMorador, setNovaSenhaMorador] = useState('')
+  const [verNovaSenhaMorador, setVerNovaSenhaMorador] = useState(false)
+  const [salvandoSenhaMorador, setSalvandoSenhaMorador] = useState(false)
+  const [msgSenhaMorador, setMsgSenhaMorador] = useState('')
+  const [senhaMoradorAtivada, setSenhaMoradorAtivada] = useState(false)
 
   // Unidades
   const [unidades, setUnidades] = useState<Unidade[]>([])
@@ -95,6 +102,12 @@ export default function Configuracoes() {
         horario_limite: condoData.horario_limite ? condoData.horario_limite.slice(0, 5) : '',
         regras: condoData.regras || '',
       })
+
+      // Verifica se o condomínio tem senha de morador ativada (sem ler a senha em si)
+      const { data: temSenha } = await supabase.rpc('condominio_tem_senha_morador', {
+        p_condominio_id: condoData.id,
+      })
+      setSenhaMoradorAtivada(!!temSenha)
 
       const { data: unidadesData } = await supabase
         .from('unidades_guardasol')
@@ -172,6 +185,33 @@ export default function Configuracoes() {
       setMsgSenhaPortaria('A nova senha deve ter pelo menos 4 caracteres.')
       return
     }
+    async function salvarSenhaMorador(e: React.FormEvent) {
+    e.preventDefault()
+    if (!condo) return
+    setMsgSenhaMorador('')
+
+    if (novaSenhaMorador.length > 0 && novaSenhaMorador.length < 4) {
+      setMsgSenhaMorador('A senha deve ter pelo menos 4 caracteres (ou deixe em branco para desativar).')
+      return
+    }
+
+    setSalvandoSenhaMorador(true)
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .update({ senha_morador: novaSenhaMorador.length > 0 ? novaSenhaMorador : null })
+      .eq('id', condo.id)
+
+    if (error) {
+      setMsgSenhaMorador('Erro: ' + error.message)
+    } else {
+      const ativada = novaSenhaMorador.length > 0
+      setSenhaMoradorAtivada(ativada)
+      setMsgSenhaMorador(ativada ? 'Senha do morador ativada!' : 'Senha do morador removida.')
+      setNovaSenhaMorador('')
+      setTimeout(() => setMsgSenhaMorador(''), 3000)
+    }
+    setSalvandoSenhaMorador(false)
+  }
     setSalvandoSenhaPortaria(true)
     const { error } = await supabase
       .from('condominios_guardasol')
@@ -185,6 +225,33 @@ export default function Configuracoes() {
       setTimeout(() => setMsgSenhaPortaria(''), 3000)
     }
     setSalvandoSenhaPortaria(false)
+  }
+  async function salvarSenhaMorador(e: React.FormEvent) {
+    e.preventDefault()
+    if (!condo) return
+    setMsgSenhaMorador('')
+
+    if (novaSenhaMorador.length > 0 && novaSenhaMorador.length < 4) {
+      setMsgSenhaMorador('A senha deve ter pelo menos 4 caracteres (ou deixe em branco para desativar).')
+      return
+    }
+
+    setSalvandoSenhaMorador(true)
+    const { error } = await supabase
+      .from('condominios_guardasol')
+      .update({ senha_morador: novaSenhaMorador.length > 0 ? novaSenhaMorador : null })
+      .eq('id', condo.id)
+
+    if (error) {
+      setMsgSenhaMorador('Erro: ' + error.message)
+    } else {
+      const ativada = novaSenhaMorador.length > 0
+      setSenhaMoradorAtivada(ativada)
+      setMsgSenhaMorador(ativada ? 'Senha do morador ativada!' : 'Senha do morador removida.')
+      setNovaSenhaMorador('')
+      setTimeout(() => setMsgSenhaMorador(''), 3000)
+    }
+    setSalvandoSenhaMorador(false)
   }
 
   async function adicionarUnidades(e: React.FormEvent) {
@@ -425,6 +492,42 @@ export default function Configuracoes() {
 
             <button type="submit" disabled={salvandoSenhaPortaria} style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14, marginTop: 16 }}>
               {salvandoSenhaPortaria ? 'Salvando...' : 'Trocar senha da portaria'}
+            </button>
+          </div>
+        </form>
+
+        {/* Senha do morador (opcional) */}
+        <form onSubmit={salvarSenhaMorador}>
+          <div className="card-form">
+            <h2>Senha de acesso do morador</h2>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 16, marginTop: -4 }}>
+              {senhaMoradorAtivada
+                ? 'Atualmente os moradores precisam digitar uma senha para reservar. Para desativar, deixe o campo abaixo em branco e salve.'
+                : 'Opcional. Se ativar, os moradores precisarão digitar essa senha antes de fazer reservas. A senha aparece impressa no QR code.'}
+            </p>
+
+            <div>
+              <label>{senhaMoradorAtivada ? 'Nova senha (ou deixe vazio para desativar)' : 'Senha do morador'}</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={verNovaSenhaMorador ? 'text' : 'password'}
+                  value={novaSenhaMorador}
+                  onChange={e => setNovaSenhaMorador(e.target.value)}
+                  placeholder={senhaMoradorAtivada ? 'Deixe vazio para desativar' : 'Ex: praia2026'}
+                  style={{ paddingRight: 80 }}
+                />
+                <button type="button" onClick={() => setVerNovaSenhaMorador(!verNovaSenhaMorador)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>
+                  {verNovaSenhaMorador ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
+            </div>
+
+            {msgSenhaMorador && (
+              <div style={{ backgroundColor: msgSenhaMorador.includes('Erro') ? '#FEE2E2' : '#D1FAE5', border: `1px solid ${msgSenhaMorador.includes('Erro') ? '#FCA5A5' : '#6EE7B7'}`, borderRadius: 8, padding: '10px 14px', marginTop: 14, fontSize: 13, color: msgSenhaMorador.includes('Erro') ? '#B91C1C' : '#065F46' }}>{msgSenhaMorador}</div>
+            )}
+
+            <button type="submit" disabled={salvandoSenhaMorador} style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14, marginTop: 16 }}>
+              {salvandoSenhaMorador ? 'Salvando...' : senhaMoradorAtivada ? 'Atualizar senha do morador' : 'Ativar senha do morador'}
             </button>
           </div>
         </form>

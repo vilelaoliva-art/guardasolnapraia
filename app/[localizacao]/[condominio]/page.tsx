@@ -53,6 +53,11 @@ export default function ReservaMorador() {
   const [reservasMes, setReservasMes] = useState<Reserva[]>([])
   const [processando, setProcessando] = useState<string | null>(null)
   const [finalizado, setFinalizado] = useState(false)
+  // Estado da senha do morador
+  const [precisaSenha, setPrecisaSenha] = useState(false)
+  const [senhaCondoMorador, setSenhaCondoMorador] = useState('')
+  const [erroSenha, setErroSenha] = useState('')
+  const [verificandoSenha, setVerificandoSenha] = useState(false)
 
   // Carrega condomínio e unidades
   useEffect(() => {
@@ -91,6 +96,22 @@ export default function ReservaMorador() {
         .order('numero', { ascending: true })
 
       setUnidades((unidadesData as Unidade[]) || [])
+
+      // Verifica se o condomínio tem senha de morador
+      const { data: temSenha } = await supabase.rpc('condominio_tem_senha_morador', {
+        p_condominio_id: condoData.id,
+      })
+
+      if (temSenha) {
+        // Verifica se o morador já digitou a senha recentemente (30 dias)
+        const chave = 'morador_auth_' + condoData.id
+        const autorizadoAte = localStorage.getItem(chave)
+        if (autorizadoAte && new Date(autorizadoAte) > new Date()) {
+          // Já autorizado, segue normal
+        } else {
+          setPrecisaSenha(true)
+        }
+      }
       setCarregando(false)
     }
 
@@ -117,6 +138,34 @@ export default function ReservaMorador() {
       .lte('data', ultimoDia)
 
     setReservasMes((data as Reserva[]) || [])
+  }
+
+  async function verificarSenhaCondo(e: React.FormEvent) {
+    e.preventDefault()
+    if (!condo) return
+    setErroSenha('')
+    setVerificandoSenha(true)
+
+    const { data: senhaOk, error } = await supabase.rpc('verificar_senha_morador', {
+      p_condominio_id: condo.id,
+      p_senha: senhaCondoMorador,
+    })
+
+    if (error || !senhaOk) {
+      setErroSenha('Senha incorreta.')
+      setVerificandoSenha(false)
+      return
+    }
+
+    // Salva no localStorage por 30 dias
+    const chave = 'morador_auth_' + condo.id
+    const validoAte = new Date()
+    validoAte.setDate(validoAte.getDate() + 30)
+    localStorage.setItem(chave, validoAte.toISOString())
+
+    setPrecisaSenha(false)
+    setSenhaCondoMorador('')
+    setVerificandoSenha(false)
   }
 
   function entrar(e: React.FormEvent) {
@@ -282,6 +331,76 @@ export default function ReservaMorador() {
             <a href="/" style={{ color: '#00210D', textDecoration: 'underline' }}>Voltar para o início</a>
           </div>
         </section>
+      </main>
+    )
+  }
+
+// TELA 0 — Senha do condomínio (se o condomínio tiver senha cadastrada)
+  if (precisaSenha) {
+    return (
+      <main style={{ minHeight: '100vh', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+        <header style={{ backgroundColor: '#00210D', padding: '18px 24px' }}>
+          <a href="/" style={{ textDecoration: 'none' }}>
+            <div style={{ color: 'white', fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>GUARDA-SOL NA PRAIA</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>by SS Condo</div>
+          </a>
+        </header>
+
+        <section style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
+          <div style={{ width: '100%', maxWidth: 400 }}>
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+              <h1 style={{ fontSize: 24, fontWeight: 700, color: '#00210D', marginBottom: 6 }}>Acesso restrito</h1>
+              <p style={{ fontSize: 14, color: '#555' }}>
+                Digite a senha do condomínio para continuar.
+              </p>
+              <p style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
+                {condo?.nome}
+              </p>
+            </div>
+
+            <div className="card-form">
+              <form onSubmit={verificarSenhaCondo}>
+                <div style={{ marginBottom: 16 }}>
+                  <label>Senha do condomínio</label>
+                  <input
+                    type="password"
+                    value={senhaCondoMorador}
+                    onChange={e => setSenhaCondoMorador(e.target.value)}
+                    placeholder="Digite a senha"
+                    required
+                    autoFocus
+                  />
+                  <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
+                    A senha está impressa no QR code ou foi enviada pelo síndico.
+                  </span>
+                </div>
+
+                {erroSenha && (
+                  <div style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#B91C1C' }}>
+                    {erroSenha}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={verificandoSenha}
+                  style={{ width: '100%', backgroundColor: '#00210D', color: 'white', fontWeight: 600, padding: '12px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 14 }}
+                >
+                  {verificandoSenha ? 'Verificando...' : 'Continuar'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <footer style={{ backgroundColor: '#00210D', padding: '24px' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+              Guarda-Sol na Praia · {new Date().getFullYear()}
+            </div>
+          </div>
+        </footer>
       </main>
     )
   }

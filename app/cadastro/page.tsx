@@ -40,9 +40,11 @@ export default function Cadastro() {
     endereco: '',
     senha_sindico: '',
     senha_portaria: '',
+    senha_morador: '',
   })
   const [verSenhaSindico, setVerSenhaSindico] = useState(false)
   const [verSenhaPortaria, setVerSenhaPortaria] = useState(false)
+  const [verSenhaMorador, setVerSenhaMorador] = useState(false)
 
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
@@ -399,6 +401,16 @@ export default function Cadastro() {
                   <input name="senha_portaria" type={verSenhaPortaria ? 'text' : 'password'} value={form.senha_portaria} onChange={handleChange} required style={{ paddingRight: 80 }} />
                   <button type="button" onClick={() => setVerSenhaPortaria(!verSenhaPortaria)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>{verSenhaPortaria ? 'Ocultar' : 'Mostrar'}</button>
                 </div>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <label>Senha do morador (opcional)</label>
+                <div style={{ position: 'relative' }}>
+                  <input name="senha_morador" type={verSenhaMorador ? 'text' : 'password'} value={form.senha_morador} onChange={handleChange} placeholder="Deixe vazio para acesso livre" style={{ paddingRight: 80 }} />
+                  <button type="button" onClick={() => setVerSenhaMorador(!verSenhaMorador)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>{verSenhaMorador ? 'Ocultar' : 'Mostrar'}</button>
+                </div>
+                <span style={{ fontSize: 12, color: '#888', marginTop: 4, display: 'block' }}>
+                  Se preenchida, os moradores precisarão digitar esta senha antes de reservar. Ela aparece impressa no QR code.
+                </span>
               </div>
             </div>
 
