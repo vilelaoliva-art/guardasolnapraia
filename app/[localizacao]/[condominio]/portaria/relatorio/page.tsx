@@ -51,7 +51,6 @@ export default function RelatorioPortaria() {
         .single()
       if (!condoData) { setCarregando(false); return }
 
-      // Verifica sessão da portaria
       const auth = sessionStorage.getItem('portaria_auth_' + condoData.id) === 'true'
       if (!auth) {
         window.location.href = '/login'
@@ -171,14 +170,14 @@ export default function RelatorioPortaria() {
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>Nenhuma reserva neste mês.</p>
           ) : (
             <div style={{ marginBottom: 32 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4, maxWidth: 320 }}>
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((dia, idx) => (
-                  <div key={idx} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#888', padding: '4px 0', textTransform: 'uppercase' }}>
+                  <div key={idx} style={{ textAlign: 'center', fontSize: 10, fontWeight: 600, color: '#888', padding: '2px 0', textTransform: 'uppercase' }}>
                     {dia}
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, maxWidth: 320 }}>
                 {gerarGridCalendario().map((dataStr, idx) => {
                   if (!dataStr) return <div key={`empty-${idx}`} />
 
@@ -195,29 +194,27 @@ export default function RelatorioPortaria() {
                   }
 
                   return (
-                    <div key={dataStr} style={{ aspectRatio: '1', backgroundColor: bgColor, color: textColor, border: '1px solid #E8E4DC', borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 4 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{dia}</div>
+                    <div key={dataStr} style={{ aspectRatio: '1', backgroundColor: bgColor, color: textColor, border: '0.5px solid #E8E4DC', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600 }}>{dia}</div>
                       {kits > 0 && (
-                        <div style={{ fontSize: 11, marginTop: 2, fontWeight: 600 }}>
-                          {kits} {kits === 1 ? 'kit' : 'kits'}
-                        </div>
+                        <div style={{ fontSize: 9, marginTop: 1, fontWeight: 600 }}>{kits}</div>
                       )}
                     </div>
                   )
                 })}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 11, color: '#888' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 14, height: 14, backgroundColor: '#FAF6EE', border: '1px solid #E8E4DC', borderRadius: 3 }} />
+              <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 11, color: '#888', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 12, height: 12, backgroundColor: '#FAF6EE', border: '0.5px solid #E8E4DC', borderRadius: 3 }} />
                   <span>Pouco</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 14, height: 14, backgroundColor: '#C0AB60', borderRadius: 3 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 12, height: 12, backgroundColor: '#C0AB60', borderRadius: 3 }} />
                   <span>Médio</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 14, height: 14, backgroundColor: '#00210D', borderRadius: 3 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 12, height: 12, backgroundColor: '#00210D', borderRadius: 3 }} />
                   <span>Muito</span>
                 </div>
               </div>
