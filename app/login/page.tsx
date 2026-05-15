@@ -65,17 +65,27 @@ export default function Login() {
       return
     }
 
-    const colunaSenha = perfil === 'sindico' ? 'senha_sindico' : 'senha_portaria'
-
+    // Busca slug do condomínio e localização (sem ler senha)
     const { data } = await supabase
       .from('condominios_guardasol')
-      .select(`${colunaSenha}, slug, localizacoes(slug)`)
+      .select(`slug, localizacoes(slug)`)
       .eq('id', condominioId)
       .single()
 
-    const senhaCorreta = (data as Record<string, unknown> | null)?.[colunaSenha] as string | undefined
+    if (!data) {
+      setErro('Condomínio não encontrado.')
+      setCarregando(false)
+      return
+    }
 
-    if (!data || senhaCorreta !== senha) {
+    // Verifica a senha pela função RPC (não expõe a senha)
+    const rpcName = perfil === 'sindico' ? 'verificar_senha_sindico' : 'verificar_senha_portaria'
+    const { data: senhaOk, error: erroRpc } = await supabase.rpc(rpcName, {
+      p_condominio_id: condominioId,
+      p_senha: senha,
+    })
+
+    if (erroRpc || !senhaOk) {
       setErro('Senha incorreta.')
       setCarregando(false)
       return

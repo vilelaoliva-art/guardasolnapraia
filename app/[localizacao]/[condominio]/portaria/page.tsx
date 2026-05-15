@@ -57,10 +57,21 @@ export default function PainelPortaria() {
       .select('*, localizacoes(nome)')
       .eq('slug', condominioSlug)
       .eq('localizacao_id', localizacao.id)
-      .eq('senha_portaria', senha)
       .single()
 
     if (error || !data) {
+      setErro('Condomínio não encontrado.')
+      setLoading(false)
+      return
+    }
+
+    // Verifica senha via RPC (não expõe a senha)
+    const { data: senhaOk, error: erroRpc } = await supabase.rpc('verificar_senha_portaria', {
+      p_condominio_id: data.id,
+      p_senha: senha,
+    })
+
+    if (erroRpc || !senhaOk) {
       setErro('Senha incorreta.')
       setLoading(false)
       return

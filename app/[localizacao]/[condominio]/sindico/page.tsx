@@ -98,10 +98,21 @@ export default function PainelSindico() {
       .select('*, localizacoes(nome, slug)')
       .eq('slug', condominioSlug)
       .eq('localizacao_id', localizacao.id)
-      .eq('senha_sindico', senha)
       .single()
 
     if (error || !data) {
+      setErro('Condomínio não encontrado.')
+      setLoading(false)
+      return
+    }
+
+    // Verifica senha via RPC (não expõe a senha)
+    const { data: senhaOk, error: erroRpc } = await supabase.rpc('verificar_senha_sindico', {
+      p_condominio_id: data.id,
+      p_senha: senha,
+    })
+
+    if (erroRpc || !senhaOk) {
       setErro('Senha incorreta.')
       setLoading(false)
       return
