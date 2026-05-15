@@ -63,6 +63,8 @@ export default function Configuracoes() {
   const [salvandoSenhaMorador, setSalvandoSenhaMorador] = useState(false)
   const [msgSenhaMorador, setMsgSenhaMorador] = useState('')
   const [senhaMoradorAtivada, setSenhaMoradorAtivada] = useState(false)
+  const [senhaMoradorAtual, setSenhaMoradorAtual] = useState('')
+  const [verSenhaMoradorAtual, setVerSenhaMoradorAtual] = useState(false)
 
   // Unidades
   const [unidades, setUnidades] = useState<Unidade[]>([])
@@ -108,6 +110,13 @@ export default function Configuracoes() {
         p_condominio_id: condoData.id,
       })
       setSenhaMoradorAtivada(!!temSenha)
+      // Se tem senha, carrega via RPC pra mostrar na tela
+      if (temSenha) {
+        const { data: senhaAtual } = await supabase.rpc('obter_senha_morador_sindico', {
+          p_condominio_id: condoData.id,
+        })
+        if (senhaAtual) setSenhaMoradorAtual(senhaAtual as string)
+      }
 
       const { data: unidadesData } = await supabase
         .from('unidades_guardasol')
@@ -206,6 +215,7 @@ export default function Configuracoes() {
     } else {
       const ativada = novaSenhaMorador.length > 0
       setSenhaMoradorAtivada(ativada)
+      setSenhaMoradorAtual(ativada ? novaSenhaMorador : '')
       setMsgSenhaMorador(ativada ? 'Senha do morador ativada!' : 'Senha do morador removida.')
       setNovaSenhaMorador('')
       setTimeout(() => setMsgSenhaMorador(''), 3000)
@@ -505,6 +515,22 @@ export default function Configuracoes() {
                 ? 'Atualmente os moradores precisam digitar uma senha para reservar. Para desativar, deixe o campo abaixo em branco e salve.'
                 : 'Opcional. Se ativar, os moradores precisarão digitar essa senha antes de fazer reservas. A senha aparece impressa no QR code.'}
             </p>
+
+            {senhaMoradorAtivada && senhaMoradorAtual && (
+              <div style={{ backgroundColor: '#FAF6EE', border: '1px solid #C0AB60', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: '#8a7a44', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600, marginBottom: 4 }}>
+                  Senha atual
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#00210D', fontFamily: 'monospace', letterSpacing: 1 }}>
+                    {verSenhaMoradorAtual ? senhaMoradorAtual : '••••••••'}
+                  </div>
+                  <button type="button" onClick={() => setVerSenhaMoradorAtual(!verSenhaMoradorAtual)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: '#00210D', fontWeight: 600, padding: '4px 8px', textDecoration: 'underline' }}>
+                    {verSenhaMoradorAtual ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div>
               <label>{senhaMoradorAtivada ? 'Nova senha (ou deixe vazio para desativar)' : 'Senha do morador'}</label>
