@@ -180,10 +180,28 @@ export default function Cadastro() {
       })
       .eq('id', condominioSelecionado.id)
 
-    if (error) {
+   if (error) {
       setErro('Erro ao ativar: ' + error.message)
       setCarregando(false)
       return
+    }
+
+    // Notifica o admin via WhatsApp (não bloqueia o fluxo se falhar)
+    try {
+      await fetch('/api/notificar-cadastro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          condominio_nome: condominioSelecionado.nome,
+          localizacao_nome: locSelecionada?.nome || '—',
+          sindico_nome: form.sindico_nome,
+          sindico_contato: form.sindico_contato,
+          sindico_email: form.sindico_email,
+          endereco: form.endereco,
+        }),
+      })
+    } catch (e) {
+      console.error('Falha ao notificar admin:', e)
     }
 
     setMensagemSucesso('Condomínio ativado com sucesso! Você já pode entrar.')
@@ -238,6 +256,24 @@ export default function Cadastro() {
       setErro('Erro ao cadastrar: ' + error.message)
       setCarregando(false)
       return
+    }
+
+    // Notifica o admin via WhatsApp (não bloqueia o fluxo se falhar)
+    try {
+      await fetch('/api/notificar-cadastro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          condominio_nome: novoCondominioNome.trim(),
+          localizacao_nome: outraLocalizacao ? novaLocalizacaoNome.trim() : (locSelecionada?.nome || '—'),
+          sindico_nome: form.sindico_nome,
+          sindico_contato: form.sindico_contato,
+          sindico_email: form.sindico_email,
+          endereco: form.endereco,
+        }),
+      })
+    } catch (e) {
+      console.error('Falha ao notificar admin:', e)
     }
 
     setMensagemSucesso('Cadastro enviado! Vamos analisar e em breve liberamos o acesso.')
